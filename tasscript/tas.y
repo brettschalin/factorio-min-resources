@@ -19,7 +19,7 @@ import (
     fp Floatpair
     cmd string
     name string
-    dir string
+    dir direction
     loc Location
     lbegin loopBegin
 
@@ -229,16 +229,16 @@ location:
 
 direction:
     NORTH {
-        $$ = "NORTH"
+        $$ = North
     }
 |   SOUTH {
-        $$ = "SOUTH"
+        $$ = South
     }
 |   EAST {
-        $$ = "EAST"
+        $$ = East
     }
 |   WEST {
-        $$ = "WEST"
+        $$ = West
     }
 
 

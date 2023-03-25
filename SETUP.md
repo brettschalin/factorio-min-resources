@@ -29,7 +29,7 @@ for chunk in game.player.surface.get_chunks() do
     end
 end
 
-d["tile"] = tiles
+d.tile = tiles
 
 local en = {}
 local entities = game.player.surface.find_entities()
@@ -54,7 +54,7 @@ while e ~= nil do
     i = i + 1
     e = entities[i]
 end
-d["entity"] = en
+d.entity = en
 game.write_file("map-data.json", game.table_to_json(d))
 ```
 

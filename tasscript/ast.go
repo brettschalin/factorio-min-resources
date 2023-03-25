@@ -74,9 +74,9 @@ func (st Statements) string(depth int) string {
 		b.WriteString(", location: ")
 		b.WriteString(fmt.Sprintf("%#v", s.Location))
 
-		if s.Direction != "" {
+		if s.Direction > 0 {
 			b.WriteString(", direction: ")
-			b.WriteString(s.Direction)
+			b.WriteString(s.Direction.String())
 		}
 		if len(s.Body) > 0 {
 			b.WriteRune('\n')
@@ -92,13 +92,36 @@ func (st Statements) string(depth int) string {
 	return str
 }
 
+type direction int
+
+const (
+	North direction = iota + 1
+	South
+	East
+	West
+)
+
+func (d direction) String() string {
+	switch d {
+	case North:
+		return "NORTH"
+	case South:
+		return "SOUTH"
+	case East:
+		return "EAST"
+	case West:
+		return "WEST"
+	}
+	return "UNKNOWN"
+}
+
 type Statement struct {
 	Type      string
 	IntVals   []int
 	FloatVals []float32
 	StrVals   []string
 	Location  Location
-	Direction string
+	Direction direction
 	Body      Statements
 }
 

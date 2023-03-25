@@ -11,6 +11,8 @@ type Prog struct {
 	Locations map[string]Floatpair
 	Exprs     []Expr
 	taskNum   int
+
+	buildingDirections map[Location]direction
 }
 
 func (p *Prog) Write(w io.Writer) error {
@@ -50,8 +52,9 @@ func (p *Prog) Valid() error {
 func (a *AST) ToProg() (*Prog, error) {
 
 	p := Prog{
-		Locations: make(map[string]Floatpair),
-		Exprs:     make([]Expr, 0),
+		Locations:          make(map[string]Floatpair),
+		Exprs:              make([]Expr, 0),
+		buildingDirections: make(map[Location]direction),
 	}
 
 	if len(a.Statements) == 0 {

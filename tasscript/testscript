@@ -1,5 +1,6 @@
 START 0.5 1.5
 LOCATION testLoc 1 2
+LOCATION testLoc2 3 4
 BUILD testLoc assembling-machine SOUTH
 BUILD 34 5 chemical-plant NORTH
 CRAFT electronic-circuit 100
@@ -12,7 +13,10 @@ PUT testLoc copper-cable 1 furnace_result
 PUT 73 12893 iron-gear-wheel 2 chest
 RECIPE testLoc iron-plate
 RECIPE 123 321 copper-plate
+BUILD testLoc chemical-plant SOUTH
+BUILD 55 55 oil-refinery NORTH
 ROTATE testLoc EAST
+ROTATE 55 55 NORTH
 ROTATE 55 55 WEST
 SPEED 1
 TAKE testLoc copper-cable 1 assembling_machine_input

@@ -37,10 +37,11 @@ func (e *LocationExpr) Eval(p *Prog) (string, error) {
 type BuildExpr struct {
 	Location  Location
 	Item      string
-	Direction string
+	Direction direction
 }
 
 func (e *BuildExpr) Eval(p *Prog) (string, error) {
+	p.buildingDirections[e.Location] = e.Direction
 	p.taskNum++
 	return fmt.Sprintf(`task[%d] = {"build", %s, %q, %s}`, p.taskNum, e.Location.String(), e.Item, e.Direction), nil
 }
@@ -51,6 +52,7 @@ type MineExpr struct {
 }
 
 func (e *MineExpr) Eval(p *Prog) (string, error) {
+	delete(p.buildingDirections, e.Location)
 	l := e.Location.String()
 	s := strings.Builder{}
 	for i := e.Amount; i > 0; i-- {
@@ -84,14 +86,47 @@ func (e *RecipeExpr) Eval(p *Prog) (string, error) {
 
 type RotateExpr struct {
 	Location  Location
-	Direction string
+	Direction direction
+}
+
+var rotations = map[direction]map[direction]string{
+	North: {
+		East:  "cw",
+		South: "180",
+		West:  "ccw",
+	},
+	East: {
+		North: "ccw",
+		South: "cw",
+		West:  "180",
+	},
+	South: {
+		North: "180",
+		East:  "ccw",
+		West:  "cw",
+	},
+	West: {
+		North: "cw",
+		East:  "180",
+		South: "ccw",
+	},
 }
 
 func (e *RotateExpr) Eval(p *Prog) (string, error) {
-	// TODO: Lua code specifies "cw" and "ccw" instead of hardcoded directions.
-	// This means we need to keep track of what direction everything's facing
 
-	return fmt.Sprintf("-- Not implemented: ROTATE %s %s", e.Location, e.Direction), nil
+	dir, ok := p.buildingDirections[e.Location]
+	if !ok {
+		return "", errors.New("no building at location " + e.Location.String())
+	}
+
+	rot := rotations[dir][e.Direction]
+	if rot == "" {
+		// building is already facing this direction!
+		return fmt.Sprintf(`-- NOOP ROTATE %s %q`, e.Location, e.Direction.String()), nil
+	}
+
+	p.taskNum++
+	return fmt.Sprintf(`task[%d] = {"rotate", %s, %q}`, p.taskNum, e.Location, rot), nil
 }
 
 type PutExpr struct {
