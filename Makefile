@@ -1,15 +1,15 @@
 
-build: fmin
+build: compile
 
-FMIN_FILES := main.go $(wildcard tasscript/*.go)
+COMPILE_FILES := main.go $(wildcard tasscript/*.go)
 
-fmin: $(FMIN_FILES)
-	go build -o fmin .
+compile: $(COMPILE_FILES)
+	go build -o compile ./cmd/compile
 
 tasscript/tas.go: tasscript/tas.y
 	go generate ./...
 
 clean:
-	rm -v tasscript/y.output tasscript/tas.go fmin
+	rm -v tasscript/y.output tasscript/tas.go compile
 
 .PHONY: build clean

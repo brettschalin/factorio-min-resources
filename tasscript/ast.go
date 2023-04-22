@@ -118,7 +118,7 @@ func (d direction) String() string {
 type Statement struct {
 	Type      string
 	IntVals   []int
-	FloatVals []float32
+	FloatVals []float64
 	StrVals   []string
 	Location  Location
 	Direction direction
@@ -133,7 +133,7 @@ func (s *Statement) Clone() *Statement {
 	other := Statement{
 		Type:      s.Type,
 		IntVals:   make([]int, len(s.IntVals)),
-		FloatVals: make([]float32, len(s.FloatVals)),
+		FloatVals: make([]float64, len(s.FloatVals)),
 		StrVals:   make([]string, len(s.StrVals)),
 		Location:  s.Location,
 		Direction: s.Direction,
@@ -148,7 +148,7 @@ func (s *Statement) Clone() *Statement {
 }
 
 type Floatpair struct {
-	X, Y float32
+	X, Y float64
 }
 
 type Location struct {

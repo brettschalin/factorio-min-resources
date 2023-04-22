@@ -5,11 +5,10 @@ Most speedruns try to complete their goal in the fastest time. Others minimize s
 
 ## How-to
 
-In progress, what I've built so far takes a simplified grammar and translates it into Lua code that can be ran with [this mod](https://github.com/gotyoke/Factorio-AnyPct-TAS). Follow the instructions in [SETUP.md](./SETUP.md), then
+In progress, what I've built so far takes a simplified grammar and translates it into Lua code that can be ran with a (heavily) modified version of [this mod](https://github.com/gotyoke/Factorio-AnyPct-TAS). Follow the instructions in [SETUP.md](./SETUP.md), then
 * compile with `make`, 
-* run `fmin <infile> <outfile>`
-* copy the result to `mods/AnyPctTAS_0.2.2/control.lua`
-* run `$FACTORIO_INSTALL_PATH/bin/x64/factorio --mod-directory mods`, start a new map with your chosen exchange string and watch it run
+* run `./compile <infile> mods/MinPctTAS_0.0.1/tasks.lua`
+* run `$FACTORIO_INSTALL_PATH/bin/x64/factorio --mod-directory mods`, start a new map and watch it run
 
 ## FAQ
 
@@ -30,7 +29,12 @@ Yes. There's nothing special about the seed I chose aside from it having a good 
 
 Short answer: it's a series of scripts that takes some abstract goals and turns them into a TAS.
 
-Long answer: Details still TBD, but what I do have built is a language that compiles down to a series of tasks that can be ran with a modified https://github.com/gotyoke/Factorio-AnyPct-TAS. The exchange string for the map I'm using is in [SETUP.md](./SETUP.md#map-exchange-string), and the information found in the rest of the file should give idea of how everything pieces together
+Long answer: A lot of this is still TBD, so take it with a grain of salt. What I have now is a heavily, heavily modified version of a TAS mod, which rather than take a list of "what to do every tick," the things to do are structured as a DAG. The task list adds things like "mine 10 iron-ore" or "craft 2 electronic-circuits," then the mod will do each in order (and take prerequisite actions into account) until there's nothing left to do.
+
+The task lists also don't hardcode any locations. This is by design. When every `character_action` task runs, it first looks up where to go (this logic is in `locations.lua`) and walks toward the target location if necessary, then performs the action, which in practice means the TAS is extremely resilient to changing the map seed. The only locations predetermined are for (1) where to construct the machines and (2) where to start searching for mining a specific resource; both are in `locations.lua` and can be changed easily for different maps.
+
+In the future I have planned another command (written in Go) that will take a more abstract / human readable script and transform it into something the TAS can understand. You can find an early version in the `cmd/compile` and `tasscript` folders
+
 
 ## LICENSE
 

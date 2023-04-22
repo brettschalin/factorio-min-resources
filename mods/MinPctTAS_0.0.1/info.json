@@ -1,0 +1,11 @@
+{
+  "name": "MinPctTAS",
+  "version": "0.0.1",
+  "factorio_version": "1.1",
+  "title": "Minimum% TAS",
+  "author": "Brett Schalin",
+  "contact": "None",
+  "homepage": "",
+  "description": "Launches a rocket with the minimum possible resources used",
+  "dependencies": ["base >= 1.1.77"]
+}

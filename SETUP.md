@@ -1,7 +1,7 @@
 ## Requirements
 
 * A copy of Factorio version `1.1.77` or later - legal purchases are preferred for reasons I shouldn't need to explain
-* The Go programming language - install from https://go.dev/dl/ or your package manager of choice (`go.mod` says `1.18` or later is required, but I haven't used any features from that release yet so older versions will probably still work)
+* The Go programming language - install from https://go.dev/dl/ or your package manager of choice (`1.18` or later is required)
 * goyacc - run `go install golang.org/x/tools/cmd/goyacc@latest` and make sure `$(go env GOPATH)/bin` is in your `PATH`
 * `make` and `patch` - these should come by default on Linux/Mac, but isn't hard to find either if you don't have them
 
@@ -59,14 +59,6 @@ game.write_file("map-data.json", game.table_to_json(d))
 ```
 
 This takes about 20 seconds on my computer on a completely new map. It loops over every single tile and entity in every generated chunk so be careful using it on any map where you've generated more than the starting area
-
-## Get the TAS Runner
-
-* Download https://github.com/gotyoke/Factorio-AnyPct-TAS. Copy the `AnyPctTAS_0.2.2` subfolder into `mods`
-* run `patch -n -i FactorioAnyPctTas.patch ./mods/AnyPct-TAS_0.2.2/control.lua` - this is for some changes that make life easier for me and makes the mod compatible with `1.1.77`
-* update `info.json` to `"factorio_version": "1.1"` and `"dependencies": ["base = 1.1.77"]`
-* delete `tasks.lua` as we'll be generating our own soon
-
 
 ## Map exchange string
 

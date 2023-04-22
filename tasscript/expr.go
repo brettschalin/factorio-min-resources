@@ -66,7 +66,7 @@ func (e *MineExpr) Eval(p *Prog) (string, error) {
 }
 
 type SpeedExpr struct {
-	Value float32
+	Value float64
 }
 
 func (e *SpeedExpr) Eval(p *Prog) (string, error) {
@@ -160,7 +160,7 @@ type CraftExpr struct {
 
 func (e *CraftExpr) Eval(p *Prog) (string, error) {
 	p.taskNum++
-	return fmt.Sprintf(`task[%d] = {"craft", %d, %s}`, p.taskNum, e.Amount, e.Item), nil
+	return fmt.Sprintf(`task[%d] = {"craft", %d, %q}`, p.taskNum, e.Amount, e.Item), nil
 }
 
 type TechExpr struct {

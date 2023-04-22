@@ -26,7 +26,7 @@ import (
     // A lot of the language uses ints, but because writing a lexer that has
     // enough context to know when to output them vs floats is hard, I modified the grammar
     // to use FLOATs everywhere and cast to int as needed
-    f float32
+    f float64
 
     result  AST
 }
@@ -78,7 +78,7 @@ start_cmd: /* empty */ {
     {
         $$ = Statement{
             Type: "START",
-            FloatVals: []float32{$2.X, $2.Y},
+            FloatVals: []float64{$2.X, $2.Y},
         }
     }
 
@@ -114,7 +114,7 @@ statement:
         $$ = Statement{
             Type: "LOCATION",
             StrVals: []string{$2},
-            FloatVals: []float32{$3,$4},
+            FloatVals: []float64{$3,$4},
         }
     }
 |   BUILD location NAME direction NEWLINE {
@@ -135,7 +135,7 @@ statement:
 |   SPEED FLOAT NEWLINE {
         $$ = Statement{
             Type: "SPEED",
-            FloatVals: []float32{$2},
+            FloatVals: []float64{$2},
         }
     }
 |   RECIPE location NAME NEWLINE {
@@ -284,7 +284,7 @@ func (x *exprLex) Lex(yylval *tasSymType) int {
                 assign = func(s string) bool {
                     f, err := strconv.ParseFloat(s, 64)
                     if err == nil {
-                        yylval.f = float32(f)
+                        yylval.f = float64(f)
                         ret = FLOAT
                         return true
                     }

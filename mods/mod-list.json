@@ -9,7 +9,7 @@
     },
     
     {
-      "name": "AnyPctTAS",
+      "name": "MinPctTAS",
       "enabled": true
     }
   ]
