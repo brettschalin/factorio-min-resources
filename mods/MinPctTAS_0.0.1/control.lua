@@ -50,7 +50,7 @@ local function build(p, position, item, direction)
 	-- Check if we have the item
 
 	local count = p.get_item_count(item) 
-	debug(p, string.format("(%d) found %d %s in player inventory", game.tick, count, item))
+	-- debug(p, string.format("(%d) found %d %s in player inventory", game.tick, count, item))
 	if count == 0 then
 		error(string.format("(%d) build: missing %s", game.tick, item))
 		return false
@@ -81,16 +81,21 @@ end
 
 -- Mine the resource or building at this location
 local function mine(p, position)
-	-- check if we can reach
-	if math2d.position.distance(p.position, position) > p.resource_reach_distance then
+
+	-- check if we can reach. I haven't tested this but whether this works with
+	-- multiple overlapping entities is unknown and likely random since it'd depend
+	-- on what order the game returns them in
+	local entity = p.surface.find_entities_filtered({position = position})
+	if not entity or not entity[1] or not p.can_reach_entity(entity[1]) then
 		return false
 	end
-	-- debug(p, string.format("(%d) mining (%d, %d)", game.tick, position.x, position.y))
 	
 	-- start/continue the mining
 	p.update_selected_entity(position)
 	p.mining_state = {mining = true, position = position}
+	-- debug(p, string.format("(%d) mining (%d, %d)", game.tick, position.x, position.y))
 	return true
+	
 end
 
 -- Handcraft one or more of a recipe
@@ -297,6 +302,7 @@ local done = false
 local current_craft = queues.pop("character_craft")
 local current_action = queues.pop("character_action")
 local current_tech = queues.pop("lab")
+local destination = {x = 0, y = 0} -- destination can't be nil, so make sure it has some value
 
 local function prereqs_done(task)
 	if task == nil or task.prereqs == nil or #task.prereqs == 0 then
@@ -404,14 +410,18 @@ script.on_event(defines.events.on_tick, function(event)
 			destination = loc
 			args.location = loc
 	elseif task == "mine" then
-		if current_action.args.resource == nil then
-			building = buildings.get(p, args.entity)
-			destination = building.location
-			args.location = building.location
+		if args.location == nil then
+			if current_action.args.resource == nil then
+				building = buildings.get(p, args.entity)
+				destination = building.location
+				args.location = building.location
+			else
+				resource = resources.find(p, args.resource)
+				destination = resource.position
+				args.location = resource.position
+			end
 		else
-			resource = resources.find(p, args.resource)
-			destination = resource.position
-			args.location = resource.position
+			destination = args.location
 		end
 	end
 
@@ -430,6 +440,8 @@ script.on_event(defines.events.on_tick, function(event)
 		can_reach = take(p, args.location, args.item, args.amount, args.inventory)
 	-- elseif task == "launch" then
 	-- 	can_reach = launch(p, args.location)
+	elseif task == "speed" then
+		can_reach = speed(args.n)
 	end
 	
 	-- stop walking if we can reach
