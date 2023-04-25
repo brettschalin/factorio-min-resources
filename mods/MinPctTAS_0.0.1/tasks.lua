@@ -17,40 +17,64 @@ function populate_tasks(queues)
 
 -- Mining / inventory transfers. Checks that some amount of
 -- item is in the machine
-local function has_inventory(inv, item, amount)
+local function has_inventory(inv, item, amount, exact, slot)
     return function(p)
         if type(inv) == "function" then
-            return inv().get_item_count(item) >= amount
+            local cnt = inv().get_item_count(item)
+            if exact then
+                return cnt == amount
+            else
+                return cnt >= amount
+            end
         elseif inv == "player" then
             -- special case: player inventory
-            return p.get_inventory(defines.inventory.character_main).get_item_count(item) >= amount
+            local cnt = p.get_inventory(defines.inventory.character_main).get_item_count(item)
+            if exact then
+                return cnt == amount
+            else
+                return cnt >= amount
+            end
         else
             -- it's the name of a building. This will throw an error if the building isn't placed,
             -- which is a problem with the task dependencies rather than this code
             b = loc.buildings.get(p, inv).entity
 
-            -- Search for any inventory that might have the item
-            for k, inv in pairs({
-                "character_main",
-                "fuel",
-                "chest",
-                "furnace_source",
-                "furnace_result",
-                "furnace_modules",
-                "assembling_machine_input",
-                "assembling_machine_output",
-                "assembling_machine_modules",
-                "lab_input",
-                "lab_modules",
-                "item_main", -- what is this?
-                "rocket_silo_input",
-                "rocket_silo_output", -- is this different from result?
-                "rocket_silo_modules",
-                "rocket_silo_result" -- needed?
-                
-            }) do
+            if slot then
+                slots = {
+                    slot
+                }
+            else
+                slots = {
+                    "fuel",
+                    "chest",
+                    "furnace_source",
+                    "furnace_result",
+                    "furnace_modules",
+                    "assembling_machine_input",
+                    "assembling_machine_output",
+                    "assembling_machine_modules",
+                    "lab_input",
+                    "lab_modules",
+                    -- "item_main", -- what is this?
+                    "rocket_silo_input",
+                    "rocket_silo_output", -- is this different from result?
+                    "rocket_silo_modules",
+                    "rocket_silo_result" -- needed?
+                }
+            end
+            -- Search for an inventory that might have the item
+            for k, inv in pairs(slots) do
                 inventory = b.get_inventory(defines.inventory[inv])
-                if inventory ~= nil and inventory.get_item_count(item) >= amount then
+                local cmp = false
+                if inventory ~= nil then
+                    local cnt = inventory.get_item_count(item) 
+                    if exact then
+                        cmp = cnt == amount
+                    else
+                        cmp = cnt >= amount
+                    end
+                end
+                if cmp then
                     return true
                 end
             end
@@ -66,7 +90,6 @@ local function is_built(entity)
     end
 end
 
-
 -- is this tech researched?
 local function research_done(tech)
     return function(p)
@@ -74,16 +97,13 @@ local function research_done(tech)
     end
 end
 
-
 -- is the handcrafting queue empty?
 local function handcrafting_done(p)
     return p.crafting_queue == nil or #p.crafting_queue == 0
 end
 
-
 -- wait for a set number of ticks
 local function idle(n)
-    n = n + 1
     return function (p)
         if n > 0 then 
             n = n - 1
@@ -92,10 +112,20 @@ local function idle(n)
     end
 end
 
+-- finds the absolute value of the input number
+local function abs(n)
+    if n < 0 then
+        return -n
+    end
+    return n
+end
 
+-- are we close enough to the target?
 local function walking_done(pos)
     return function (p)
-        return math2d.position.distance(pos, p.position) < 0.2
+        dx = abs(p.position.x - pos.x)
+        dy = abs(p.position.y - pos.y)
+        return dx < 0.2 and dy < 0.2
     end
 end
 
@@ -115,7 +145,6 @@ script.on_event(defines.events.on_player_mined_item, function(event)
         return
     end
 
-    game.print(string.format("(%d) mine event: %s", game.tick, serpent.block(event)))
 	mining_done = true
 end)
 
@@ -134,19 +163,13 @@ function add_task(task, prereqs, args)
         done = walking_done(args.location)
     elseif task == "put" then
         q = "character_action"
-        local amount = args.amount
-        if args.sub then
-            -- crafting starts on the tick a machine can start working,
-            -- but we only start checking on the next tick
-            amount = amount - args.sub
-        end
-        done = has_inventory(args.entity, args.item, amount)
+        done = idle(1)
     elseif task == "take" then
         q = "character_action"
-        done = has_inventory("player", args.item, args.amount)
+        done = idle(1)
     elseif task == "recipe" then
         q = "character_action"
-        -- TODO
+        done = idle(1)
     elseif task == "speed" then
         q = "character_action" 
         done = idle(1)
@@ -163,7 +186,6 @@ function add_task(task, prereqs, args)
         else
             done = has_inventory("player", args.resource, args.amount)
         end
-        
     elseif task == "build" then
         q = "character_action"
         done = is_built(args.entity)

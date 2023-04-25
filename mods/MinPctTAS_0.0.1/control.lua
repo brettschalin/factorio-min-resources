@@ -299,6 +299,7 @@ end
 
 local first_tick = true
 local done = false
+local can_reach = false
 local current_craft = queues.pop("character_craft")
 local current_action = queues.pop("character_action")
 local current_tech = queues.pop("lab")
@@ -378,17 +379,9 @@ script.on_event(defines.events.on_tick, function(event)
 		return
 	end
 
-	if prereqs_done(current_action) and current_action.done(p) then
-		debug(p, string.format("(%d): %s done", event.tick, current_action.id))
-		queues.mark_done(current_action.id)
-		current_action = queues.pop("character_action")
-		debug(p, string.format("(%d) starting action %s", event.tick, serpent.block(current_action)))
+	if not prereqs_done(current_action) then
+		return
 	end
-
-	if current_action == nil or not prereqs_done(current_action) then
-		return 
-	end
-
 
 	task = current_action.task
 	args = current_action.args
@@ -425,32 +418,42 @@ script.on_event(defines.events.on_tick, function(event)
 		end
 	end
 
-	local can_reach = false
-
 	-- now try to do the task
 	if task == "build" then
-		can_reach = build(p, args.location, args.entity, args.direction or defines.direction.north)
+		cr = build(p, args.location, args.entity, args.direction or defines.direction.north)
 	elseif task == "recipe" then
-		can_reach = recipe(p, args.location, args.recipe)
+		cr = recipe(p, args.location, args.recipe)
 	elseif task == "mine" then
-		can_reach = mine(p, args.location)
+		cr = mine(p, args.location)
 	elseif task == "put" then
-		can_reach = put(p, args.location, args.item, args.amount, args.inventory)
+		cr = put(p, args.location, args.item, args.amount, args.inventory)
 	elseif task == "take" then
-		can_reach = take(p, args.location, args.item, args.amount, args.inventory)
+		cr = take(p, args.location, args.item, args.amount, args.inventory)
 	-- elseif task == "launch" then
-	-- 	can_reach = launch(p, args.location)
+	-- 	cr = launch(p, args.location)
 	elseif task == "speed" then
-		can_reach = speed(args.n)
+		cr = speed(args.n)
 	end
 	
-	-- stop walking if we can reach
+	can_reach = can_reach or cr
+
+	-- if we can reach, we've started doing the action. Stop walking and start checking if it's done
 	if can_reach then
 		destination = pos
 	end
 
+
+	if current_action.done(p) and (task == "walk" or can_reach) then
+		debug(p, string.format("(%d): %s done", event.tick, current_action.id))
+		queues.mark_done(current_action.id)
+		current_action = queues.pop("character_action")
+		debug(p, string.format("(%d) starting action %s", event.tick, serpent.block(current_action)))
+		can_reach = false
+	end
+
 	local walking = walk(destination.x - pos.x, destination.y - pos.y)
 	p.walking_state = walking
+
 end)
 
 
