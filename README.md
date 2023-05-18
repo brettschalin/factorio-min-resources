@@ -23,18 +23,38 @@ Yes. I'm using Factorio's own mechanisms to dump the data it uses, so there's no
 
 ### Does this work with another map?
 
-Yes. There's nothing special about the seed I chose aside from it having a good layout.
+Yes. There's nothing special about the seed I chose aside from it having a good layout. Just be sure to update `locations.lua` in the mod
 
 ### But how does it actually work?
 
 Short answer: it's a series of scripts that takes some abstract goals and turns them into a TAS.
 
-Long answer: A lot of this is still TBD, so take it with a grain of salt. What I have now is a heavily, heavily modified version of a TAS mod, which rather than take a list of "what to do every tick," the things to do are structured as a DAG. The task list adds things like "mine 10 iron-ore" or "craft 2 electronic-circuits," then the mod will do each in order (and take prerequisite actions into account) until there's nothing left to do.
+Long answer: I've written a mod (based on https://mods.factorio.com/mod/AnyPctTAS but heavily modified to do what's described here) to take a series of tasks and perform them in order. Instead of the original mod hardcoding the order and which tick they're performed on, this allows you to set prerequisites that must be done before a task is started, so you can have something like "craft 10 iron-gear-wheels but not before you take 20 iron-plates from the furnace." The mod considers a TAS "done" when there's no more tasks left to perform, and it'll print out how many resources were used in the process.
 
-The task lists also don't hardcode any locations. This is by design. When every `character_action` task runs, it first looks up where to go (this logic is in `locations.lua`) and walks toward the target location if necessary, then performs the action, which in practice means the TAS is extremely resilient to changing the map seed. The only locations predetermined are for (1) where to construct the machines and (2) where to start searching for mining a specific resource; both are in `locations.lua` and can be changed easily for different maps.
+The tasks are split into three queues:
+- `character_craft` for handcrafting
+- `lab` for research
+- `character_action` for everything else, like mining or putting stuff in machines
 
-In the future I have planned another command (written in Go) that will take a more abstract / human readable script and transform it into something the TAS can understand. You can find an early version in the `cmd/compile` and `tasscript` folders
+On each tick, the queues are checked in the order listed above (only one is started on any given tick). If all of the task's prerequisites are `done()`, the task is started and marked as such. If a task is already running, we check if it's `done()`, and if it is, the next task is pulled off the queue. Some of the `character_action`s also need locations, but for the purpose of easier script generation they are not hardcoded anywhere in the Go code; we only ever build one of any given building so its name is used by the mod and the "real" location is found at runtime via the logic in `locations.lua`.
 
+`tasks.lua` can be modified directly, but an easier option is to use the Go command I've also provided. That allows you to define more abstract goals and it will do the hard work of turning them into actions to perform. The work is split into 4 phases, the last three of which are contained in `task.Optimize`:
+
+- Phase "0": define the tasks. This is done at the point the `task.New...` functions are called. For "craft" tasks, use the recipe data to add prerequisite tasks to craft its ingredients first (or mine ore). For "tech" tasks, research every prerequisite task and craft the science packs
+
+- Phase 1: Tasks are ran in order with a state object. "craft", "build", and "mine" all affect the inventory, and if they alter the number of crafts required then the pass will reverse and remove any "extra" crafts/mines that happened earlier. "tech" tasks for technologies that are already researched will likewise be removed along with their requirement to craft the associated science packs. When I get to that point module bonuses will also be applied on this pass
+
+- Phase 2: Tasks are ran again with a new state object. Abstract "craft" tasks are replaced with either handcrafting or (more likely) placing ingredients into a machine, waiting, and grabbing the result. This pass also takes into account mining fuel to power machines and batching the crafts to one stack of material.
+
+- Phase 3: Tasks are reordered so that actions can be done while waiting for something else to finish
+
+After these optimizations are done, the tasks are converted to a lua formatted line and outputted to the new `tasks.lua`
+
+### What modifications are made to the game?
+
+Aside from the obvious "character is being controlled by the script," I've also made a couple other changes for convenience. They don't affect the quantity of resources required but they do make the run faster to code/execute.
+* night does not exist. This is because most of the run has machines powered by one solar panel
+* character inventory size is greatly increased. This is also not necessary, but not doing it would require that I implement logic to drop things on the ground and pick them up and that seems like more trouble that it's worth
 
 ## LICENSE
 

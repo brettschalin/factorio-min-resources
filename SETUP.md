@@ -7,58 +7,7 @@
 
 ## Get the data
 
-As of version `1.1.77`, there's a command line option to dump the raw data the game uses as JSON - this is the reason this version is a hard requirement. Run `$FACTORIO_INSTALL_PATH/bin/x64/factorio --data-dump` and it'll dump a rather large (~35-40MB) JSON file into the `script-output` directory. Copy it to [`data`](./data).
-
-We also need map-specific data, and since I don't feel like reverse-engineering the storage format, we'll get it from a running instance of the game. Start a new game with your chosen map (mine is using the exchange string below) and run the following with `/c ...`. When it's done another JSON file will appear in `script-output`. Copy it to `./data` 
-
-```lua
-
-local d = {}
-
-local tiles = {}
-
-for chunk in game.player.surface.get_chunks() do
-    for x = chunk.area.left_top.x,chunk.area.right_bottom.x,1 do
-        tiles[x] = tiles[x] or {}
-        for y = chunk.area.left_top.y,chunk.area.right_bottom.y,1 do
-            local tile = game.player.surface.get_tile(x, y)
-            if tile.valid then
-                tiles[x][y] = tile.name
-            end
-        end
-    end
-end
-
-d.tile = tiles
-
-local en = {}
-local entities = game.player.surface.find_entities()
-local i = 1
-local e = entities[i]
-while e ~= nil do
-    if en[e.position.x] == nil then
-        en[e.position.x] = {}
-    end
-
-    local entity = { name = e.name, position = e.position, type = e.type }
-    if e.type == "resource" then
-        entity.amount = e.amount
-    end
-    if e.type == "container" then
-        local inv = e.get_inventory(defines.inventory.chest)
-        if inv ~= nil then
-            entity.contents = inv.get_contents()
-        end
-    end
-    en[e.position.x][e.position.y] = entity
-    i = i + 1
-    e = entities[i]
-end
-d.entity = en
-game.write_file("map-data.json", game.table_to_json(d))
-```
-
-This takes about 20 seconds on my computer on a completely new map. It loops over every single tile and entity in every generated chunk so be careful using it on any map where you've generated more than the starting area
+As of version `1.1.77`, there's a command line option to dump the raw data the game uses as JSON - The TAS code should in theory work for much earlier versions but the Go command needs the data dump and therefore need this version or higher. Run `$FACTORIO_INSTALL_PATH/bin/x64/factorio --data-dump` and it'll dump a rather large (~35-40MB) JSON file into the `script-output` directory. Copy it to [`data`](./data).
 
 ## Map exchange string
 

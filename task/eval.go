@@ -1,3 +1,116 @@
+package task
+
+import (
+	"fmt"
+	"io"
+	"strings"
+)
+
+// outputs the (Lua) tasks required to perform this action,
+// and the ID of the last task to run
+func (t *Task) Eval(lastID string) (string, string) {
+	out := strings.Builder{}
+
+	prereqIDs := make([]string, len(t.Prerequisites))
+
+	var outLine string
+
+	for i, p := range t.Prerequisites {
+		prereqIDs[i] = p.GetID()
+		outLine, lastID = p.Eval(lastID)
+		out.WriteString(outLine)
+		out.WriteByte('\n')
+	}
+
+	// meta tasks only appear for grouping purposes. Do not actually output them
+	if t.Type == TaskMeta {
+		return out.String(), lastID
+	}
+
+	var prereqs string
+
+	if lastID != "" {
+		prereqIDs = append(prereqIDs, lastID)
+	}
+
+	if len(prereqIDs) > 0 {
+		prereqs = "{" + strings.Join(prereqIDs, ",") + "}"
+	} else {
+		prereqs = "nil"
+	}
+
+	var args string
+
+	out.WriteString(t.GetID() + " = add_task(")
+	typ := t.Type
+	out.WriteString("\"" + typ.String() + "\"")
+	switch typ {
+	case TaskWalk:
+		args = fmt.Sprintf("location = {x = %.2f, y = %.2f}", t.Location.X, t.Location.Y)
+
+	case TaskWait:
+		args = fmt.Sprintf(`done = %s(%q, %q, %d)`, t.WaitCondition, t.Entity, t.Item, t.Amount)
+
+	case TaskCraft:
+		args = fmt.Sprintf(`item = %q, amount = %d`, t.Item, t.Amount)
+
+	case TaskBuild:
+		if t.Direction != "" {
+			args = fmt.Sprintf(`entity = %q, direction = %s`, t.Entity, t.Direction)
+		} else {
+			args = fmt.Sprintf(`entity = %q`, t.Entity)
+		}
+	case TaskTake, TaskPut:
+		args = fmt.Sprintf(`entity = %q, inventory = %s, item = %q, amount = %d`,
+			t.Entity, t.Slot, t.Item, t.Amount)
+
+	case TaskTech:
+		args = fmt.Sprintf(`tech = %q`, t.Tech)
+
+	case TaskMine:
+		if t.Location != nil {
+			args = fmt.Sprintf(`location = {x = %.2f, y = %.2f`, t.Location.X, t.Location.Y)
+		} else if t.Item != "" {
+			args = fmt.Sprintf(`resource = %q, amount = %d`, t.Item, t.Amount)
+		} else {
+			args = fmt.Sprintf(`entity = %q`, t.Entity)
+		}
+
+	case TaskLaunch:
+		args = `entity = "rocket-silo"`
+
+	default:
+		panic("unknown task type " + typ.String())
+	}
+
+	out.WriteString(", " + prereqs)
+	out.WriteString(", {" + args + "}")
+
+	out.WriteString(")\n")
+	return out.String(), t.GetID()
+}
+
+func WriteTasksFile(w io.StringWriter, task *Task) error {
+
+	var err error
+
+	if _, err = w.WriteString(TasksLuaHeader); err != nil {
+		return err
+	}
+
+	var out string
+
+	out, _ = task.Eval("")
+	if _, err = w.WriteString(out); err != nil {
+		return err
+	}
+
+	_, err = w.WriteString(TasksLuaFooter)
+
+	return err
+}
+
+const TasksLuaHeader = `-- Automatically generated. DO NOT EDIT this section
 local loc = require("locations")
 local math2d = require("math2d")
 
@@ -214,54 +327,23 @@ function add_task(task, prereqs, args)
     })
 end
 
+-- Task definitions. Feel free to modify anything below here
 
--- Task definitions. This is an example that mines, crafts and builds the first basic research setup
+-- mine the crash site. The Go code assumes we have the 8 iron-plates
+-- you get from this, so be careful about editing it. These locations are the few
+-- that are map dependentas the placement of the wreckage is somewhat random; a future improvement
+-- will hopefully change that
+add_task("mine", nil, {location = {x = -5, y = -6}})
+add_task("mine", nil, {location = {x = -17.5, y = -3.5}})
+add_task("mine", nil, {location = {x = -18.8, y = -0.3}})
+add_task("mine", nil, {location = {x = -27.5, y = -3.8}})
+add_task("mine", nil, {location = {x = -28, y = 1.9}})
+add_task("mine", nil, {location = {x = -37.8, y = 1.5}})
 
-add_task("speed", nil, {n = 10})
--- Mine and smelt
-task_0 = add_task("mine", nil, {resource = "copper-ore", amount = 19})
-task_1 = add_task("mine", nil, {resource = "coal", amount = 20})
-task_2 = add_task("build", nil, {entity = "stone-furnace"})
-task_3 = add_task("put", {task_0, task_1, task_2}, {inventory = defines.inventory.furnace_source, entity = "stone-furnace", item = "copper-ore", amount = 19})
-task_4 = add_task("put", {task_3},{inventory = defines.inventory.fuel, entity = "stone-furnace", item = "coal", amount = 20, sub = 1})
-task_5 = add_task("mine", nil, {resource = "iron-ore", amount = 26})
-task_6 = add_task("wait", {task_4, task_5}, {done = has_inventory("stone-furnace", "copper-plate", 19)})
-task_7 = add_task("take", {task_6}, {inventory = defines.inventory.furnace_result, entity = "stone-furnace", item = "copper-plate", amount = 19})
+`
 
-task_8 = add_task("put", {task_7}, {inventory = defines.inventory.furnace_source, entity = "stone-furnace", item = "iron-ore", amount = 26, sub = 1})
-task_9 = add_task("mine", {task_8}, {resource = "iron-ore", amount = 50})
-task_10 = add_task("wait", {task_8}, {done = has_inventory("stone-furnace", "iron-plate", 26)})
-task_11 = add_task("take", {task_10}, {inventory = defines.inventory.furnace_result, entity = "stone-furnace", item = "iron-plate", amount = 26})
-task_12 = add_task("put", {task_11}, {inventory = defines.inventory.furnace_source, entity = "stone-furnace", item = "iron-ore", amount = 50, sub = 1})
-task_13 = add_task("mine", {task_12}, {resource = "stone", amount = 5})
-task_14 = add_task("wait", {task_12}, {done = has_inventory("stone-furnace", "iron-plate", 50)})
-task_15 = add_task("take", {task_13}, {inventory = defines.inventory.furnace_result, entity = "stone-furnace", item = "iron-plate", amount = 50})
-
-add_task("speed", nil, {n = 1})
-
--- craft everything
-task_16 = add_task("craft", {task_15}, {item = "boiler", amount = 1})
-task_17 = add_task("craft", {task_16}, {item = "small-electric-pole", amount = 1})
-task_18 = add_task("craft", {task_17}, {item = "steam-engine", amount = 1})
-task_19 = add_task("craft", {task_18}, {item = "offshore-pump", amount = 1})
-task_20 = add_task("craft", {task_19}, {item = "lab", amount = 1})
-
--- mine the crash site while we wait
-task_21 = add_task("mine", {task_15}, {location = {x = -5, y = -6}})
-task_22 = add_task("mine", nil, {location = {x = -17.5, y = -3.5}})
-task_23 = add_task("mine", nil, {location = {x = -18.8, y = -0.3}})
-task_24 = add_task("mine", nil, {location = {x = -27.5, y = -3.8}})
-task_25 = add_task("mine", nil, {location = {x = -28, y = 1.9}})
-task_26 = add_task("mine", nil, {location = {x = -37.8, y = 1.5}})
-
--- build the setup
-task_27 = add_task("build", {task_18, task_26}, {entity = "offshore-pump", direction = defines.direction.north})
-task_28 = add_task("build", {task_15, task_27}, {entity = "boiler", direction = defines.direction.east})
-task_29 = add_task("build", {task_18, task_28}, {entity = "steam-engine", direction = defines.direction.east})
-task_30 = add_task("build", {task_17, task_29}, {entity = "small-electric-pole"})
-task_31 = add_task("build", {task_20, task_30}, {entity = "lab"})
-
-
+const TasksLuaFooter = `
 end -- populate_tasks
 
 return populate_tasks
+`

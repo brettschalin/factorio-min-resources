@@ -12,12 +12,12 @@ local locations = {
 }
 
 -- TODO:
--- * electric_furnace
+-- * electric-furnace
 -- * solar-panel
 -- * assembling-machine-2
 -- * oil-refinery
 -- * chemical-plant
--- * assembline-machine-3
+-- * assembling-machine-3
 -- * rocket-silo
 -- * a second small-electric-pole (possibly not needed, will require thought of how to make it work)
 
@@ -46,7 +46,6 @@ function resources.find(p, name)
         name = name
     })
     while res == nil or #res == 0 do
-        radius = radius * 2
         if radius > end_radius then
             error("no "..name.." found on player surface")
         end
@@ -55,6 +54,7 @@ function resources.find(p, name)
             radius = radius,
             name = name
         })
+        radius = radius * 2
     end
     
     sort_func = function(i, j)

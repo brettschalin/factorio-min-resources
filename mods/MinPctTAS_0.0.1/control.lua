@@ -339,6 +339,8 @@ script.on_event(defines.events.on_tick, function(event)
 			p.exit_cutscene()
 			debug(p, "setting always daylight")
 			p.surface.always_day = true
+			debug(p, "increasing character inventory size")
+			p.character_inventory_slots_bonus = 420 --500 slots total
 			first_tick = false
 		end
 	end

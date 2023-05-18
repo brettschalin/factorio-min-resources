@@ -8,14 +8,6 @@ local ids = {}
 
 local finished_tasks = {}
 
-local function parse_id(id)
-    patt = "_%d+$"
-    idx, id_end, match = string.find(id, patt)    
-    q_name = string.sub(id, 1, idx - 1)
-    id_num = string.sub(id, idx + 1)
-    return q_name, id_num
-end
-
 function queues.add_queue(name)
     queues[name] = {}
     ids[name] = 0
