@@ -24,11 +24,11 @@ type State struct {
 }
 
 func New() *State {
-	f := data.D.Furnace["stone-furnace"]
+	f := data.GetFurnace("stone-furnace")
 	s := &State{
 		TechResearched: make(map[string]bool),
 		Buildings:      make(map[string]bool),
-		Furnace:        building.NewFurnace(&f),
+		Furnace:        building.NewFurnace(f),
 	}
 
 	// Starting inventory

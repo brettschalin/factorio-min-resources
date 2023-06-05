@@ -55,7 +55,7 @@ func pass1(task *Task, s *state.State) {
 			return
 		}
 
-		rec := data.D.GetRecipe(task.Item)
+		rec := data.GetRecipe(task.Item)
 
 		// TODO: update this check. Machine crafting should also happen when
 		// we can use prod modules
@@ -107,7 +107,7 @@ func pass1Reverse(task, until *Task, toSub map[string]int) {
 
 			// task.Amount is how many recipes to craft, rather than the total number of items we want at the end
 
-			rec := data.D.GetRecipe(task.Item)
+			rec := data.GetRecipe(task.Item)
 			totalAmount := task.Amount * rec.ProductCount(task.Item)
 
 			oldAmt := totalAmount
@@ -152,7 +152,7 @@ func pass2(task *Task, s *state.State) {
 
 	case TaskCraft:
 
-		rec := data.D.GetRecipe(task.Item)
+		rec := data.GetRecipe(task.Item)
 
 		// get the building/slots to use
 		var (
@@ -264,7 +264,7 @@ func (t *Task) eval(s *state.State, doPrereqs bool) {
 		if t.Amount == 0 {
 			return
 		}
-		rec := data.D.GetRecipe(t.Item)
+		rec := data.GetRecipe(t.Item)
 		for _, ing := range rec.Ingredients {
 			s.Inventory[ing.Name] -= ing.Amount * t.Amount
 		}
@@ -277,7 +277,7 @@ func (t *Task) eval(s *state.State, doPrereqs bool) {
 		if t.Amount == 0 {
 			return
 		}
-		rec := data.D.GetRecipe(t.Item)
+		rec := data.GetRecipe(t.Item)
 		div := float64(rec.ProductCount(t.Item))
 		count := 1
 		if div != 1 {
@@ -293,16 +293,16 @@ func (t *Task) eval(s *state.State, doPrereqs bool) {
 		}
 
 	case TaskMine:
-		if _, ok := data.D.Furnace[t.Entity]; ok {
+		if f := data.GetFurnace(t.Entity); f.Name != "" {
 			s.Furnace = nil
 		}
-		if _, ok := data.D.Boiler[t.Entity]; ok {
+		if b := data.GetBoiler(t.Entity); b.Name != "" {
 			s.Boiler = nil
 		}
-		if _, ok := data.D.Lab[t.Entity]; ok {
+		if l := data.GetLab(t.Entity); l.Name != "" {
 			s.Lab = nil
 		}
-		if a, ok := data.D.AssemblingMachine[t.Entity]; ok {
+		if a := data.GetAssemblingMachine(t.Entity); a.Name != "" {
 			switch a.Name {
 			case s.Chem.Entity.Name:
 				s.Chem = nil
@@ -327,17 +327,17 @@ func (t *Task) eval(s *state.State, doPrereqs bool) {
 		s.Inventory[t.Entity]--
 		s.Buildings[t.Entity] = true
 
-		if f, ok := data.D.Furnace[t.Entity]; ok {
-			s.Furnace = building.NewFurnace(&f)
+		if f := data.GetFurnace(t.Entity); f.Name != "" {
+			s.Furnace = building.NewFurnace(f)
 		}
-		if b, ok := data.D.Boiler[t.Entity]; ok {
-			s.Boiler = building.NewBoiler(&b)
+		if b := data.GetBoiler(t.Entity); b.Name != "" {
+			s.Boiler = building.NewBoiler(b)
 		}
-		if l, ok := data.D.Lab[t.Entity]; ok {
-			s.Lab = building.NewLab(&l)
+		if l := data.GetLab(t.Entity); l.Name != "" {
+			s.Lab = building.NewLab(l)
 		}
-		if a, ok := data.D.AssemblingMachine[t.Entity]; ok {
-			b := building.NewAssembler(&a)
+		if a := data.GetAssemblingMachine(t.Entity); a.Name != "" {
+			b := building.NewAssembler(a)
 
 			// extremely hacky but it works for vanilla so it's staying for now
 			switch a.Name {

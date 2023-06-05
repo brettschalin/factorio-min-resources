@@ -34,7 +34,7 @@ var BaseItems = map[string]bool{
 // and the products created.
 // `nil` is returned if no recipe crafts the chosen items
 func RecipeCost(item string, amount int) (ingredients, products map[string]int) {
-	recipe := data.D.GetRecipe(item)
+	recipe := data.GetRecipe(item)
 
 	if recipe == nil {
 		return nil, nil
@@ -155,7 +155,7 @@ func RecipeAllIngredients(item string, amount int) (data.Ingredients, error) {
 }
 
 func recipeAllIngredients(item string, amount int, depth int) (data.Ingredients, error) {
-	rec := data.D.GetRecipe(item)
+	rec := data.GetRecipe(item)
 	if rec == nil {
 		return nil, errors.New("no recipe crafts " + item)
 	}
@@ -200,7 +200,7 @@ func (e *ErrMissingIngredient) Error() string {
 // Handcraft performs a handcrafting action
 func Handcraft(inventory map[string]int, item string, amount int) (newInventory map[string]int, err error) {
 
-	rec := data.D.GetRecipe(item)
+	rec := data.GetRecipe(item)
 	if rec == nil || !rec.CanHandcraft() {
 		return nil, ErrCantHandcraft
 	}
@@ -215,7 +215,7 @@ func Handcraft(inventory map[string]int, item string, amount int) (newInventory 
 	for ing, n := range ingredients {
 		diff := n - newInventory[ing]
 		if diff > 0 {
-			if r := data.D.GetRecipe(ing); !r.CanHandcraft() {
+			if r := data.GetRecipe(ing); !r.CanHandcraft() {
 				return nil, &ErrMissingIngredient{ing, diff}
 			}
 			// not enough in inventory. Try to craft it
@@ -239,7 +239,7 @@ func Handcraft(inventory map[string]int, item string, amount int) (newInventory 
 // TechCost returns the number of science packs required to research this technology
 func TechCost(name string) map[string]int {
 
-	t := data.D.GetTech(name)
+	t := data.GetTech(name)
 	if t == nil {
 		return nil
 	}
@@ -271,7 +271,7 @@ func techFullCost(researched map[string]bool, name string) map[string]int {
 	if cost == nil {
 		return nil
 	}
-	tech := data.D.GetTech(name)
+	tech := data.GetTech(name)
 	if tech == nil {
 		return nil
 	}

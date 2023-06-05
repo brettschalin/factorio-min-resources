@@ -277,7 +277,7 @@ func NewTech(techName string) *Task {
 		Tech: techName,
 	}
 
-	tech := data.D.GetTech(techName)
+	tech := data.GetTech(techName)
 	for _, p := range tech.Prerequisites {
 		task.AddPrereq(NewTech(p))
 	}

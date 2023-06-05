@@ -101,9 +101,9 @@ func (f *Furnace) FuelCost(fuel, item string, nRecipes int) int {
 		return 0
 	}
 
-	rec := data.D.GetRecipe(item)
+	rec := data.GetRecipe(item)
 
-	e := float64(data.D.Item[fuel].FuelValue)
+	e := float64(data.GetItem(fuel).FuelValue)
 	c := float64(f.Entity.EnergyUsage)
 
 	timeToCraft := rec.CraftingTime() / f.Entity.CraftingSpeed
@@ -134,7 +134,7 @@ func NewBoiler(spec *data.Boiler) *Boiler {
 
 func (b *Boiler) FuelCost(fuel string, energy float64) int {
 
-	item := data.D.Item[fuel]
+	item := data.GetItem(fuel)
 
 	// TODO: factor in b.Entity.Effectivity. Vanilla boiler says "1"
 
@@ -168,7 +168,7 @@ func NewLab(spec *data.Lab) *Lab {
 }
 
 func (l *Lab) EnergyCost(tech string) float64 {
-	t := data.D.GetTech(tech)
+	t := data.GetTech(tech)
 	e := l.Entity.EnergyUsage
 	time := t.Unit.Time
 	n := t.Unit.Count

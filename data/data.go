@@ -13,12 +13,13 @@ import (
 	"github.com/brettschalin/factorio-min-resources/geo"
 )
 
+//go:generate ./gen_get.bash
+
 var (
-	D Data
+	d Data
 )
 
 func Init(dataFile string) error {
-
 	df, err := os.Open(dataFile)
 	if err != nil {
 		return err
@@ -26,8 +27,7 @@ func Init(dataFile string) error {
 	defer df.Close()
 
 	dec := json.NewDecoder(df)
-	return dec.Decode(&D)
-
+	return dec.Decode(&d)
 }
 
 // some recipes have expensive variants. Set this to true
@@ -335,9 +335,12 @@ func (r *Recipe) CanHandcraft() bool {
 		return true
 	}
 
-	// TODO: the proper check is that r.Category is in D.Character.CraftingCategories
-
-	return r.Category == "crafting"
+	for _, category := range d.Character.CraftingCategories {
+		if r.Category == category {
+			return true
+		}
+	}
+	return false
 }
 
 // OneStackCount returns the number of recipes that can be crafted
@@ -350,14 +353,14 @@ func (r *Recipe) OneStackCount() int {
 		if ing.IsFluid {
 			continue
 		}
-		item := D.Item[ing.Name]
+		item := d.Item[ing.Name]
 		c := int(math.Floor(float64(item.StackSize) / float64(ing.Amount)))
 		if c < count {
 			count = c
 		}
 	}
 
-	item := D.Item[r.Name]
+	item := d.Item[r.Name]
 	c := int(math.Floor(float64(item.StackSize) / float64(r.ProductCount(r.Name))))
 	if c < count {
 		count = c

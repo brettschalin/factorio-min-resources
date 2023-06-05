@@ -26,14 +26,14 @@ func newState(inventory map[string]int, techs map[string]bool) *state.State {
 		techs = map[string]bool{}
 	}
 
-	f := data.D.Furnace["stone-furnace"]
-	asm := data.D.AssemblingMachine["assembling-machine-1"]
+	f := data.GetFurnace("stone-furnace")
+	asm := data.GetAssemblingMachine("assembling-machine-1")
 
 	return &state.State{
 		Inventory:      inventory,
 		TechResearched: techs,
-		Furnace:        building.NewFurnace(&f),
-		Assembler:      building.NewAssembler(&asm),
+		Furnace:        building.NewFurnace(f),
+		Assembler:      building.NewAssembler(asm),
 	}
 }
 
