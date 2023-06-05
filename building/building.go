@@ -12,6 +12,13 @@ type modules struct {
 	maxLen int
 }
 
+type slots struct {
+	Input   string
+	Output  string
+	Fuel    string
+	Modules string
+}
+
 func (m *modules) add(mod string) {
 	if len(m.m) == m.maxLen {
 		// TODO: handle this better
@@ -38,6 +45,7 @@ func (m *modules) remove(mod string) {
 
 type Assembler struct {
 	Entity  *data.AssemblingMachine
+	Slots   slots
 	Modules modules
 }
 
@@ -51,13 +59,19 @@ func NewAssembler(spec *data.AssemblingMachine) *Assembler {
 	}
 
 	return &Assembler{
-		Entity:  spec,
+		Entity: spec,
+		Slots: slots{
+			Input:   "defines.inventory.assembling_machine_input",
+			Output:  "defines.inventory.assembling_machine_output",
+			Modules: "defines.inventory.assembling_machine_modules",
+		},
 		Modules: mods,
 	}
 }
 
 type Furnace struct {
 	Entity  *data.Furnace
+	Slots   slots
 	Modules modules
 }
 
@@ -70,7 +84,13 @@ func NewFurnace(spec *data.Furnace) *Furnace {
 		}
 	}
 	return &Furnace{
-		Entity:  spec,
+		Entity: spec,
+		Slots: slots{
+			Input:   "defines.inventory.furnace_source",
+			Output:  "defines.inventory.furnace_result",
+			Fuel:    "defines.inventory.fuel",
+			Modules: "defines.inventory.furnace_modules",
+		},
 		Modules: mods,
 	}
 }
@@ -124,6 +144,7 @@ func (b *Boiler) FuelCost(fuel string, energy float64) int {
 
 type Lab struct {
 	Entity  *data.Lab
+	Slots   slots
 	Modules modules
 }
 
@@ -137,7 +158,11 @@ func NewLab(spec *data.Lab) *Lab {
 	}
 
 	return &Lab{
-		Entity:  spec,
+		Entity: spec,
+		Slots: slots{
+			Input:   "defines.inventory.lab_input",
+			Modules: "defines.inventory.lab_modules",
+		},
 		Modules: mods,
 	}
 }

@@ -300,6 +300,24 @@ func (r *Recipe) Get() *Recipe {
 	return r
 }
 
+func (r *Recipe) GetResults() Ingredients {
+	if r.Result != "" {
+		count := r.ResultCount
+		if count == 0 {
+			count = 1
+		}
+		return Ingredients{
+			{
+				Name:   r.Result,
+				Amount: count,
+			},
+		}
+	}
+	out := make(Ingredients, len(r.Results))
+	copy(out, r.Results)
+	return out
+}
+
 // CraftingTime returns the crafting time in seconds
 func (r *Recipe) CraftingTime() float64 {
 	craftingTime := r.EnergyRequired

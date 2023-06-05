@@ -17,6 +17,7 @@ const (
 	TaskWalk
 	TaskWait
 	TaskCraft
+	TaskHandcraft
 	TaskFuel
 	TaskBuild
 	TaskTake
@@ -34,6 +35,8 @@ func (t TaskType) String() string {
 	case TaskWait:
 		return "wait"
 	case TaskCraft:
+		return "craft"
+	case TaskHandcraft:
 		return "craft"
 	case TaskFuel:
 		return "fuel"
@@ -72,8 +75,8 @@ type Task struct {
 	// Store them here
 	ID string `json:"id,omitempty"`
 
-	Parent *Task `json:"-"`
-	Index  int   `json:"index"`
+	Parent *Task `json:"-" diff:"-"`
+	Index  int   `json:"index" diff:"-"`
 
 	Type          TaskType `json:"type"`
 	Prerequisites []*Task  `json:"prerequisites,omitempty"`
@@ -131,8 +134,8 @@ func (t *Task) Prune() {
 	i := 0
 	for _, p := range t.Prerequisites {
 		if p == nil ||
-			(p.Type == TaskCraft && p.Amount == 0) ||
-			(p.Type == TaskMine && p.Amount == 0) ||
+			(p.Type == TaskCraft && p.Amount <= 0) ||
+			(p.Type == TaskMine && p.Amount <= 0) ||
 			(p.Type == TaskTech && p.Tech == "") {
 			continue
 		}

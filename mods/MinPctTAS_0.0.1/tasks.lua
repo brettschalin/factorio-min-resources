@@ -1,3 +1,4 @@
+-- Automatically generated. DO NOT EDIT this section
 local loc = require("locations")
 local math2d = require("math2d")
 
@@ -214,52 +215,91 @@ function add_task(task, prereqs, args)
     })
 end
 
+-- Task definitions. Feel free to modify anything below here
 
--- Task definitions. This is an example that mines, crafts and builds the first basic research setup
+-- mine the crash site. The Go code assumes we have the 8 iron-plates
+-- you get from this, so be careful about editing it. These locations are the few
+-- that are map dependent as the placement of the wreckage is somewhat random; a future improvement
+-- will hopefully change that
+add_task("mine", nil, {location = {x = -5, y = -6}})
+add_task("mine", nil, {location = {x = -17.5, y = -3.5}})
+add_task("mine", nil, {location = {x = -18.8, y = -0.3}})
+add_task("mine", nil, {location = {x = -27.5, y = -3.8}})
+add_task("mine", nil, {location = {x = -28, y = 1.9}})
+add_task("mine", nil, {location = {x = -37.8, y = 1.5}})
 
-add_task("speed", nil, {n = 10})
--- Mine and smelt
-task_0 = add_task("mine", nil, {resource = "copper-ore", amount = 19})
-task_1 = add_task("mine", nil, {resource = "coal", amount = 20})
-task_2 = add_task("build", nil, {entity = "stone-furnace"})
-task_3 = add_task("put", {task_0, task_1, task_2}, {inventory = defines.inventory.furnace_source, entity = "stone-furnace", item = "copper-ore", amount = 19})
-task_4 = add_task("put", {task_3},{inventory = defines.inventory.fuel, entity = "stone-furnace", item = "coal", amount = 20, sub = 1})
-task_5 = add_task("mine", nil, {resource = "iron-ore", amount = 26})
-task_6 = add_task("wait", {task_4, task_5}, {done = has_inventory("stone-furnace", "copper-plate", 19)})
-task_7 = add_task("take", {task_6}, {inventory = defines.inventory.furnace_result, entity = "stone-furnace", item = "copper-plate", amount = 19})
+task_build_0 = add_task("build", nil, {entity = "stone-furnace"})
 
-task_8 = add_task("put", {task_7}, {inventory = defines.inventory.furnace_source, entity = "stone-furnace", item = "iron-ore", amount = 26, sub = 1})
-task_9 = add_task("mine", {task_8}, {resource = "iron-ore", amount = 50})
-task_10 = add_task("wait", {task_8}, {done = has_inventory("stone-furnace", "iron-plate", 26)})
-task_11 = add_task("take", {task_10}, {inventory = defines.inventory.furnace_result, entity = "stone-furnace", item = "iron-plate", amount = 26})
-task_12 = add_task("put", {task_11}, {inventory = defines.inventory.furnace_source, entity = "stone-furnace", item = "iron-ore", amount = 50, sub = 1})
-task_13 = add_task("mine", {task_12}, {resource = "stone", amount = 5})
-task_14 = add_task("wait", {task_12}, {done = has_inventory("stone-furnace", "iron-plate", 50)})
-task_15 = add_task("take", {task_13}, {inventory = defines.inventory.furnace_result, entity = "stone-furnace", item = "iron-plate", amount = 50})
+task_mine_0 = add_task("mine", {task_build_0}, {resource = "stone", amount = 5})
 
-add_task("speed", nil, {n = 1})
+task_craft_0 = add_task("craft", {task_mine_0}, {item = "stone-furnace", amount = 1})
 
--- craft everything
-task_16 = add_task("craft", {task_15}, {item = "boiler", amount = 1})
-task_17 = add_task("craft", {task_16}, {item = "small-electric-pole", amount = 1})
-task_18 = add_task("craft", {task_17}, {item = "steam-engine", amount = 1})
-task_19 = add_task("craft", {task_18}, {item = "offshore-pump", amount = 1})
-task_20 = add_task("craft", {task_19}, {item = "lab", amount = 1})
+task_mine_1 = add_task("mine", {task_craft_0}, {resource = "iron-ore", amount = 68})
 
--- mine the crash site while we wait
-task_21 = add_task("mine", {task_15}, {location = {x = -5, y = -6}})
-task_22 = add_task("mine", nil, {location = {x = -17.5, y = -3.5}})
-task_23 = add_task("mine", nil, {location = {x = -18.8, y = -0.3}})
-task_24 = add_task("mine", nil, {location = {x = -27.5, y = -3.8}})
-task_25 = add_task("mine", nil, {location = {x = -28, y = 1.9}})
-task_26 = add_task("mine", nil, {location = {x = -37.8, y = 1.5}})
+task_mine_2 = add_task("mine", {task_mine_1}, {resource = "coal", amount = 4})
 
--- build the setup
-task_27 = add_task("build", {task_18, task_26}, {entity = "offshore-pump", direction = defines.direction.north})
-task_28 = add_task("build", {task_15, task_27}, {entity = "boiler", direction = defines.direction.east})
-task_29 = add_task("build", {task_18, task_28}, {entity = "steam-engine", direction = defines.direction.east})
-task_30 = add_task("build", {task_17, task_29}, {entity = "small-electric-pole"})
-task_31 = add_task("build", {task_20, task_30}, {entity = "lab"})
+task_put_0 = add_task("put", {task_mine_2}, {entity = "stone-furnace", inventory = defines.inventory.fuel, item = "coal", amount = 4})
+
+task_put_1 = add_task("put", {task_put_0}, {entity = "stone-furnace", inventory = defines.inventory.furnace_source, item = "iron-ore", amount = 50})
+
+task_wait_0 = add_task("wait", {task_put_1}, {done = has_inventory("stone-furnace", "iron-plate", 50)})
+
+task_take_0 = add_task("take", {task_wait_0}, {entity = "stone-furnace", inventory = defines.inventory.furnace_result, item = "iron-plate", amount = 50})
+
+task_mine_3 = add_task("mine", {task_take_0}, {resource = "coal", amount = 2})
+
+task_put_2 = add_task("put", {task_mine_3}, {entity = "stone-furnace", inventory = defines.inventory.fuel, item = "coal", amount = 2})
+
+task_put_3 = add_task("put", {task_put_2}, {entity = "stone-furnace", inventory = defines.inventory.furnace_source, item = "iron-ore", amount = 18})
+
+task_wait_1 = add_task("wait", {task_put_3}, {done = has_inventory("stone-furnace", "iron-plate", 18)})
+
+task_take_1 = add_task("take", {task_wait_1}, {entity = "stone-furnace", inventory = defines.inventory.furnace_result, item = "iron-plate", amount = 18})
+
+
+task_craft_1 = add_task("craft", {task_take_1}, {item = "pipe", amount = 10})
+
+task_craft_2 = add_task("craft", {task_craft_1}, {item = "boiler", amount = 1})
+
+task_mine_4 = add_task("mine", {task_craft_2}, {resource = "copper-ore", amount = 19})
+
+task_mine_5 = add_task("mine", {task_mine_4}, {resource = "coal", amount = 2})
+
+task_put_4 = add_task("put", {task_mine_5}, {entity = "stone-furnace", inventory = defines.inventory.fuel, item = "coal", amount = 2})
+
+task_put_5 = add_task("put", {task_put_4}, {entity = "stone-furnace", inventory = defines.inventory.furnace_source, item = "copper-ore", amount = 19})
+
+task_wait_2 = add_task("wait", {task_put_5}, {done = has_inventory("stone-furnace", "copper-plate", 19)})
+
+task_take_2 = add_task("take", {task_wait_2}, {entity = "stone-furnace", inventory = defines.inventory.furnace_result, item = "copper-plate", amount = 19})
+
+
+task_craft_3 = add_task("craft", {task_take_2}, {item = "copper-cable", amount = 19})
+
+task_craft_4 = add_task("craft", {task_craft_3}, {item = "electronic-circuit", amount = 12})
+
+task_craft_5 = add_task("craft", {task_craft_4}, {item = "iron-gear-wheel", amount = 21})
+
+task_craft_6 = add_task("craft", {task_craft_5}, {item = "transport-belt", amount = 2})
+
+task_craft_7 = add_task("craft", {task_craft_6}, {item = "lab", amount = 1})
+
+task_craft_8 = add_task("craft", {task_craft_7}, {item = "offshore-pump", amount = 1})
+
+task_craft_9 = add_task("craft", {task_craft_8}, {item = "small-electric-pole", amount = 1})
+
+task_craft_10 = add_task("craft", {task_craft_9}, {item = "steam-engine", amount = 1})
+
+
+task_build_1 = add_task("build", {task_craft_10}, {entity = "offshore-pump", direction = defines.direction.north})
+
+task_build_2 = add_task("build", {task_build_1}, {entity = "steam-engine", direction = defines.direction.east})
+
+task_build_3 = add_task("build", {task_build_2}, {entity = "lab", direction = defines.direction.north})
+
+task_build_4 = add_task("build", {task_build_3}, {entity = "small-electric-pole"})
+
+task_build_5 = add_task("build", {task_build_4}, {entity = "boiler", direction = defines.direction.east})
 
 
 end -- populate_tasks

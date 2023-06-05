@@ -51,7 +51,7 @@ func (t *Task) Eval(lastID string) (string, string) {
 	case TaskWait:
 		args = fmt.Sprintf(`done = %s(%q, %q, %d)`, t.WaitCondition, t.Entity, t.Item, t.Amount)
 
-	case TaskCraft:
+	case TaskCraft, TaskHandcraft:
 		args = fmt.Sprintf(`item = %q, amount = %d`, t.Item, t.Amount)
 
 	case TaskBuild:
@@ -331,7 +331,7 @@ end
 
 -- mine the crash site. The Go code assumes we have the 8 iron-plates
 -- you get from this, so be careful about editing it. These locations are the few
--- that are map dependentas the placement of the wreckage is somewhat random; a future improvement
+-- that are map dependent as the placement of the wreckage is somewhat random; a future improvement
 -- will hopefully change that
 add_task("mine", nil, {location = {x = -5, y = -6}})
 add_task("mine", nil, {location = {x = -17.5, y = -3.5}})

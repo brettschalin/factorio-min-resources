@@ -30,8 +30,6 @@ func main() {
 		task.NewBuild("lab", task.DirectionNorth),
 		task.NewBuild("small-electric-pole", ""),
 		task.NewBuild("boiler", task.DirectionEast),
-		task.NewTech("logistic-science-pack"),
-		task.NewTech("solar-energy"),
 	}
 
 	// of, err := os.OpenFile("./mods/MinPctTAS_0.0.1/tasks.lua", os.O_CREATE|os.O_APPEND|os.O_WRONLY|os.O_TRUNC, 0666)
