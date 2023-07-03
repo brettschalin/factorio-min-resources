@@ -2,6 +2,7 @@ package state
 
 import (
 	"github.com/brettschalin/factorio-min-resources/building"
+	"github.com/brettschalin/factorio-min-resources/constants"
 	"github.com/brettschalin/factorio-min-resources/data"
 )
 
@@ -32,21 +33,7 @@ func New() *State {
 	}
 
 	// Starting inventory
-	s.Inventory = map[string]int{
-		"stone-furnace":       1,
-		"burner-mining-drill": 1,
-		"wood":                1,
-
-		// found in the spaceship wreckage. Will be in the inventory
-		// so long as the generated "mine the ship" commands are kept
-		"iron-plate": 8,
-
-		// In secondary inventory. If these are needed they must be transferred to the
-		// main inventory first
-		"pistol":           1,
-		"firearm-magazine": 2,
-	}
-
+	s.Inventory = copyMap(constants.StartingInventory)
 	return s
 }
 

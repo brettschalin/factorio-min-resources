@@ -4,20 +4,70 @@ import (
 	"fmt"
 	"io"
 	"strings"
+
+	"github.com/brettschalin/factorio-min-resources/constants"
 )
+
+func (t *Task) fmtPrereqs() string {
+
+	if len(t.Prerequisites) == 0 {
+		return "nil"
+	}
+	out := strings.Builder{}
+	out.WriteByte('{')
+	out.WriteString(t.Prerequisites[0].GetID())
+
+	for _, p := range t.Prerequisites[1:] {
+		out.WriteString(`,` + p.GetID())
+	}
+	out.WriteByte('}')
+
+	return out.String()
+}
+
+func (t *Task) fmtArgs() string {
+	switch t.Type {
+	case TaskWalk:
+		return fmt.Sprintf("location = {x = %.2f, y = %.2f}", t.Location.X, t.Location.Y)
+	case TaskWait:
+		return fmt.Sprintf(`done = %s(%q, %q, %d)`, t.WaitCondition, t.Entity, t.Item, t.Amount)
+	case TaskCraft, TaskHandcraft:
+		return fmt.Sprintf(`item = %q, amount = %d`, t.Item, t.Amount)
+	case TaskBuild:
+		if t.Direction != constants.DirectionNone {
+			return fmt.Sprintf(`entity = %q, direction = %s`, t.Entity, t.Direction)
+		} else {
+			return fmt.Sprintf(`entity = %q`, t.Entity)
+		}
+	case TaskTake, TaskPut:
+		return fmt.Sprintf(`entity = %q, inventory = %s, item = %q, amount = %d`,
+			t.Entity, t.Slot, t.Item, t.Amount)
+	case TaskTech:
+		return fmt.Sprintf(`tech = %q`, t.Tech)
+	case TaskMine:
+		if t.Location != nil {
+			return fmt.Sprintf(`location = {x = %.2f, y = %.2f`, t.Location.X, t.Location.Y)
+		} else if t.Item != "" {
+			return fmt.Sprintf(`resource = %q, amount = %d`, t.Item, t.Amount)
+		} else {
+			return fmt.Sprintf(`entity = %q`, t.Entity)
+		}
+	case TaskLaunch:
+		return `entity = "rocket-silo"`
+	default:
+		return ""
+	}
+}
 
 // outputs the (Lua) tasks required to perform this action,
 // and the ID of the last task to run
-func (t *Task) Eval(lastID string) (string, string) {
+func (t *Task) Export(lastID string) (string, string) {
 	out := strings.Builder{}
-
-	prereqIDs := make([]string, len(t.Prerequisites))
 
 	var outLine string
 
-	for i, p := range t.Prerequisites {
-		prereqIDs[i] = p.GetID()
-		outLine, lastID = p.Eval(lastID)
+	for _, p := range t.Prerequisites {
+		outLine, lastID = p.Export(lastID)
 		out.WriteString(outLine)
 		out.WriteByte('\n')
 	}
@@ -27,64 +77,12 @@ func (t *Task) Eval(lastID string) (string, string) {
 		return out.String(), lastID
 	}
 
-	var prereqs string
-
-	if lastID != "" {
-		prereqIDs = append(prereqIDs, lastID)
-	}
-
-	if len(prereqIDs) > 0 {
-		prereqs = "{" + strings.Join(prereqIDs, ",") + "}"
-	} else {
-		prereqs = "nil"
-	}
-
-	var args string
-
 	out.WriteString(t.GetID() + " = add_task(")
 	typ := t.Type
 	out.WriteString("\"" + typ.String() + "\"")
-	switch typ {
-	case TaskWalk:
-		args = fmt.Sprintf("location = {x = %.2f, y = %.2f}", t.Location.X, t.Location.Y)
 
-	case TaskWait:
-		args = fmt.Sprintf(`done = %s(%q, %q, %d)`, t.WaitCondition, t.Entity, t.Item, t.Amount)
-
-	case TaskCraft, TaskHandcraft:
-		args = fmt.Sprintf(`item = %q, amount = %d`, t.Item, t.Amount)
-
-	case TaskBuild:
-		if t.Direction != "" {
-			args = fmt.Sprintf(`entity = %q, direction = %s`, t.Entity, t.Direction)
-		} else {
-			args = fmt.Sprintf(`entity = %q`, t.Entity)
-		}
-	case TaskTake, TaskPut:
-		args = fmt.Sprintf(`entity = %q, inventory = %s, item = %q, amount = %d`,
-			t.Entity, t.Slot, t.Item, t.Amount)
-
-	case TaskTech:
-		args = fmt.Sprintf(`tech = %q`, t.Tech)
-
-	case TaskMine:
-		if t.Location != nil {
-			args = fmt.Sprintf(`location = {x = %.2f, y = %.2f`, t.Location.X, t.Location.Y)
-		} else if t.Item != "" {
-			args = fmt.Sprintf(`resource = %q, amount = %d`, t.Item, t.Amount)
-		} else {
-			args = fmt.Sprintf(`entity = %q`, t.Entity)
-		}
-
-	case TaskLaunch:
-		args = `entity = "rocket-silo"`
-
-	default:
-		panic("unknown task type " + typ.String())
-	}
-
-	out.WriteString(", " + prereqs)
-	out.WriteString(", {" + args + "}")
+	out.WriteString("," + t.fmtPrereqs())
+	out.WriteString(", {" + t.fmtArgs() + "}")
 
 	out.WriteString(")\n")
 	return out.String(), t.GetID()
@@ -100,7 +98,7 @@ func WriteTasksFile(w io.StringWriter, task *Task) error {
 
 	var out string
 
-	out, _ = task.Eval("")
+	out, _ = task.Export("")
 	if _, err = w.WriteString(out); err != nil {
 		return err
 	}

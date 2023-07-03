@@ -2,8 +2,6 @@
 
 * A copy of Factorio version `1.1.77` or later - legal purchases are preferred for reasons I shouldn't need to explain
 * The Go programming language - install from https://go.dev/dl/ or your package manager of choice (`1.18` or later is required)
-* goyacc - run `go install golang.org/x/tools/cmd/goyacc@latest` and make sure `$(go env GOPATH)/bin` is in your `PATH`
-* `make` and `patch` - these should come by default on Linux/Mac, but isn't hard to find either if you don't have them
 
 ## Get the data
 

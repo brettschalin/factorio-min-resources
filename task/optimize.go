@@ -1,19 +1,14 @@
 package task
 
 import (
+	"fmt"
 	"math"
 
 	"github.com/brettschalin/factorio-min-resources/building"
 	"github.com/brettschalin/factorio-min-resources/calc"
+	"github.com/brettschalin/factorio-min-resources/constants"
 	"github.com/brettschalin/factorio-min-resources/data"
 	"github.com/brettschalin/factorio-min-resources/state"
-)
-
-// various configurations. This should be ideal for vanilla but YMMV
-const (
-
-	// what the boiler/furnace should be fueled with. This is assumed to be a minable resource
-	preferredFuel = "coal"
 )
 
 func Optimize(task *Task) *Task {
@@ -156,38 +151,34 @@ func pass2(task *Task, s *state.State) {
 
 		// get the building/slots to use
 		var (
-			buildingName string
-			inSlot       string
-			outSlot      string
-			fuelSlot     string
-			needsFuel    bool
+			b         building.Building
+			needsFuel bool
 		)
 
-		switch rec.Category {
-		case "smelting":
-			buildingName = s.Furnace.Entity.Name
-			inSlot = s.Furnace.Slots.Input
-			outSlot = s.Furnace.Slots.Output
-			fuelSlot = s.Furnace.Slots.Fuel
-			// TODO: move this check somewhere better
-			needsFuel = s.Furnace.Entity.EnergySource.FuelCategory == "chemical"
-		case "oil-processing":
-			buildingName = s.Refinery.Entity.Name
-			inSlot = s.Refinery.Slots.Input
-			outSlot = s.Refinery.Slots.Output
-		case "chemistry":
-			buildingName = s.Chem.Entity.Name
-			inSlot = s.Chem.Slots.Input
-			outSlot = s.Chem.Slots.Output
+		switch {
+		case s.Furnace != nil && s.Furnace.Entity.CanCraft(rec):
+			b = s.Furnace
+			needsFuel = s.Furnace.Entity.IsBurner()
+
+		case s.Refinery != nil && s.Refinery.Entity.CanCraft(rec):
+			b = s.Refinery
+			needsFuel = s.Refinery.Entity.IsBurner()
+
+		case s.Chem != nil && s.Chem.Entity.CanCraft(rec):
+			b = s.Chem
+			needsFuel = s.Chem.Entity.IsBurner()
+
+		case s.Assembler != nil && s.Assembler.Entity.CanCraft(rec):
+			b = s.Assembler
+			needsFuel = s.Assembler.Entity.IsBurner()
+
 		default:
-			buildingName = s.Assembler.Entity.Name
-			inSlot = s.Assembler.Slots.Input
-			outSlot = s.Assembler.Slots.Output
+			panic(fmt.Sprintf("no machine available to craft %s", rec.Name))
 		}
 
 		// now for the batching
 		cost, prod := calc.RecipeCost(task.Item, task.Amount)
-		osc := rec.OneStackCount()
+		osc := calc.OneStackRecipe(rec)
 		recipesToMake := int(math.Floor(float64(prod[task.Item]) / float64(rec.ProductCount(task.Item))))
 		osc = min(osc, recipesToMake)
 
@@ -198,10 +189,10 @@ func pass2(task *Task, s *state.State) {
 
 				// TODO: we shouldn't hardcode furnaces being the only machines
 				// that take fuel. It's mostly true for vanilla
-				fuelCost := s.Furnace.FuelCost(preferredFuel, task.Item, osc)
+				fuelCost := int(math.Ceil(calc.FuelFromRecipes(s.Furnace, rec, osc, constants.PreferredFuel)))
 				if fuelCost > 0 {
-					task.AddPrereq(NewMine(preferredFuel, fuelCost))
-					task.AddPrereq(NewTransfer(buildingName, fuelSlot, preferredFuel, fuelCost, false))
+					task.AddPrereq(NewMine(constants.PreferredFuel, fuelCost))
+					task.AddPrereq(NewTransfer(b.Name(), b.Slots().Fuel, constants.PreferredFuel, fuelCost, false))
 				}
 
 			} else {
@@ -211,15 +202,15 @@ func pass2(task *Task, s *state.State) {
 			}
 
 			for _, ing := range rec.Ingredients {
-				task.AddPrereq(NewTransfer(buildingName, inSlot, ing.Name, ing.Amount*osc, false))
+				task.AddPrereq(NewTransfer(b.Name(), b.Slots().Input, ing.Name, ing.Amount*osc, false))
 				cost[ing.Name] -= ing.Amount * osc
 				if cost[ing.Name] <= 0 {
 					done--
 					delete(cost, ing.Name)
 				}
 			}
-			task.AddPrereq(NewWait(buildingName, outSlot, task.Item, rec.ProductCount(task.Item)*osc))
-			task.AddPrereq(NewTransfer(buildingName, outSlot, task.Item, rec.ProductCount(task.Item)*osc, true))
+			task.AddPrereq(NewWait(b.Name(), b.Slots().Output, task.Item, rec.ProductCount(task.Item)*osc))
+			task.AddPrereq(NewTransfer(b.Name(), b.Slots().Output, task.Item, rec.ProductCount(task.Item)*osc, true))
 
 			recipesToMake -= osc
 			osc = min(osc, recipesToMake)
@@ -241,8 +232,7 @@ func pass2(task *Task, s *state.State) {
 
 	case TaskTech:
 
-		// TODO: we need to to similar batching as in TaskCraft, both to put packs in the lab
-		// but also to fuel the boiler before we get a solar panel
+		// TODO: we need to to similar batching as in TaskCraft to put packs in the lab
 		task.eval(s, false)
 
 	default:

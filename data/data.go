@@ -2,14 +2,13 @@ package data
 
 import (
 	"bytes"
-	_ "embed"
 	"encoding/json"
 	"fmt"
-	"math"
 	"os"
 	"strconv"
 	"strings"
 
+	"github.com/brettschalin/factorio-min-resources/constants"
 	"github.com/brettschalin/factorio-min-resources/geo"
 )
 
@@ -29,12 +28,6 @@ func Init(dataFile string) error {
 	dec := json.NewDecoder(df)
 	return dec.Decode(&d)
 }
-
-// some recipes have expensive variants. Set this to true
-// if you want to use them
-const useExpensive = false
-
-const ticksPerSecond = 60
 
 type Data struct {
 	AssemblingMachine map[string]AssemblingMachine `json:"assembling-machine"`
@@ -291,7 +284,7 @@ func (r *Recipe) ProductCount(item string) int {
 }
 
 func (r *Recipe) Get() *Recipe {
-	if e := r.Expensive; useExpensive && e != nil {
+	if e := r.Expensive; constants.UseExpensive && e != nil {
 		return e
 	}
 	if n := r.Normal; n != nil {
@@ -341,32 +334,6 @@ func (r *Recipe) CanHandcraft() bool {
 		}
 	}
 	return false
-}
-
-// OneStackCount returns the number of recipes that can be crafted
-//   if given one stack of each input item, and at most produces one stack of output.
-// Fluid inputs are skipped since they're not subject to the same stacking constraints
-func (r *Recipe) OneStackCount() int {
-	count := math.MaxInt
-
-	for _, ing := range r.Ingredients {
-		if ing.IsFluid {
-			continue
-		}
-		item := d.Item[ing.Name]
-		c := int(math.Floor(float64(item.StackSize) / float64(ing.Amount)))
-		if c < count {
-			count = c
-		}
-	}
-
-	item := d.Item[r.Name]
-	c := int(math.Floor(float64(item.StackSize) / float64(r.ProductCount(r.Name))))
-	if c < count {
-		count = c
-	}
-
-	return count
 }
 
 type Ingredients []Ingredient
@@ -493,4 +460,29 @@ type TechCost struct {
 	Count       int         `json:"count"`
 	Ingredients Ingredients `json:"ingredients"`
 	Time        int         `json:"time"`
+}
+
+func canCraft(r *Recipe, categories []string) bool {
+	for _, c := range categories {
+		if c == r.Category {
+			return true
+		}
+	}
+	return false
+}
+
+func (a *AssemblingMachine) CanCraft(r *Recipe) bool {
+	return canCraft(r, a.CraftingCategories)
+}
+
+func (f *Furnace) CanCraft(r *Recipe) bool {
+	return canCraft(r, f.CraftingCategories)
+}
+
+func (a *AssemblingMachine) IsBurner() bool {
+	return a.EnergySource.FuelCategory == constants.FuelCategoryChemical
+}
+
+func (f *Furnace) IsBurner() bool {
+	return f.EnergySource.FuelCategory == constants.FuelCategoryChemical
 }

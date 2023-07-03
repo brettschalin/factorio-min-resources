@@ -2,8 +2,8 @@ package building
 
 import (
 	"fmt"
-	"math"
 
+	"github.com/brettschalin/factorio-min-resources/constants"
 	"github.com/brettschalin/factorio-min-resources/data"
 )
 
@@ -13,10 +13,10 @@ type modules struct {
 }
 
 type slots struct {
-	Input   string
-	Output  string
-	Fuel    string
-	Modules string
+	Input   constants.Inventory
+	Output  constants.Inventory
+	Fuel    constants.Inventory
+	Modules constants.Inventory
 }
 
 func (m *modules) add(mod string) {
@@ -43,10 +43,16 @@ func (m *modules) remove(mod string) {
 	m.m = newM
 }
 
+type Building interface {
+	Name() string
+	Slots() slots
+	Modules() modules
+}
+
 type Assembler struct {
 	Entity  *data.AssemblingMachine
-	Slots   slots
-	Modules modules
+	slots   slots
+	modules modules
 }
 
 func NewAssembler(spec *data.AssemblingMachine) *Assembler {
@@ -60,19 +66,31 @@ func NewAssembler(spec *data.AssemblingMachine) *Assembler {
 
 	return &Assembler{
 		Entity: spec,
-		Slots: slots{
-			Input:   "defines.inventory.assembling_machine_input",
-			Output:  "defines.inventory.assembling_machine_output",
-			Modules: "defines.inventory.assembling_machine_modules",
+		slots: slots{
+			Input:   constants.InventoryAssemblingMachineInput,
+			Output:  constants.InventoryAssemblingMachineOutput,
+			Modules: constants.InventoryAssemblingMachineModules,
 		},
-		Modules: mods,
+		modules: mods,
 	}
+}
+
+func (a *Assembler) Name() string {
+	return a.Entity.Name
+}
+
+func (a *Assembler) Slots() slots {
+	return a.slots
+}
+
+func (a *Assembler) Modules() modules {
+	return a.modules
 }
 
 type Furnace struct {
 	Entity  *data.Furnace
-	Slots   slots
-	Modules modules
+	slots   slots
+	modules modules
 }
 
 func NewFurnace(spec *data.Furnace) *Furnace {
@@ -85,41 +103,31 @@ func NewFurnace(spec *data.Furnace) *Furnace {
 	}
 	return &Furnace{
 		Entity: spec,
-		Slots: slots{
-			Input:   "defines.inventory.furnace_source",
-			Output:  "defines.inventory.furnace_result",
-			Fuel:    "defines.inventory.fuel",
-			Modules: "defines.inventory.furnace_modules",
+		slots: slots{
+			Input:   constants.InventoryFurnaceSource,
+			Output:  constants.InventoryFurnaceResult,
+			Fuel:    constants.InventoryFuel,
+			Modules: constants.InventoryFurnaceModules,
 		},
-		Modules: mods,
+		modules: mods,
 	}
 }
 
-func (f *Furnace) FuelCost(fuel, item string, nRecipes int) int {
-	// electric furnaces don't have a fuel slot
-	if f.Entity.EnergySource.FuelCategory != "chemical" {
-		return 0
-	}
+func (f *Furnace) Name() string {
+	return f.Entity.Name
+}
 
-	rec := data.GetRecipe(item)
+func (f *Furnace) Slots() slots {
+	return f.slots
+}
 
-	e := float64(data.GetItem(fuel).FuelValue)
-	c := float64(f.Entity.EnergyUsage)
-
-	timeToCraft := rec.CraftingTime() / f.Entity.CraftingSpeed
-
-	energy := timeToCraft * float64(c)
-
-	n := float64(nRecipes) * (energy / e)
-
-	// TODO: we're rounding up for the required fuel. That fraction should be accounted for
-	// but isn't yet
-
-	return int(math.Ceil(n))
+func (f *Furnace) Modules() modules {
+	return f.modules
 }
 
 type Boiler struct {
 	Entity *data.Boiler
+	slots  slots
 
 	// I only care about the effective power conversion,
 	// so this will act like a combined boiler/steam engine
@@ -129,23 +137,28 @@ type Boiler struct {
 func NewBoiler(spec *data.Boiler) *Boiler {
 	return &Boiler{
 		Entity: spec,
+		slots: slots{
+			Fuel: constants.InventoryFuel,
+		},
 	}
 }
 
-func (b *Boiler) FuelCost(fuel string, energy float64) int {
+func (b *Boiler) Name() string {
+	return b.Entity.Name
+}
 
-	item := data.GetItem(fuel)
+func (b *Boiler) Slots() slots {
+	return b.slots
+}
 
-	// TODO: factor in b.Entity.Effectivity. Vanilla boiler says "1"
-
-	return int(math.Ceil(float64(energy) / float64(item.FuelValue)))
-
+func (b *Boiler) Modules() modules {
+	return modules{}
 }
 
 type Lab struct {
 	Entity  *data.Lab
-	Slots   slots
-	Modules modules
+	slots   slots
+	modules modules
 }
 
 func NewLab(spec *data.Lab) *Lab {
@@ -159,19 +172,22 @@ func NewLab(spec *data.Lab) *Lab {
 
 	return &Lab{
 		Entity: spec,
-		Slots: slots{
-			Input:   "defines.inventory.lab_input",
-			Modules: "defines.inventory.lab_modules",
+		slots: slots{
+			Input:   constants.InventoryLabInput,
+			Modules: constants.InventoryLabModules,
 		},
-		Modules: mods,
+		modules: mods,
 	}
 }
 
-func (l *Lab) EnergyCost(tech string) float64 {
-	t := data.GetTech(tech)
-	e := l.Entity.EnergyUsage
-	time := t.Unit.Time
-	n := t.Unit.Count
+func (l *Lab) Name() string {
+	return l.Entity.Name
+}
 
-	return float64(time) * float64(n) * float64(e)
+func (l *Lab) Slots() slots {
+	return l.slots
+}
+
+func (l *Lab) Modules() modules {
+	return l.modules
 }

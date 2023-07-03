@@ -6,6 +6,7 @@ import (
 	"sort"
 
 	"github.com/brettschalin/factorio-min-resources/calc"
+	"github.com/brettschalin/factorio-min-resources/constants"
 	"github.com/brettschalin/factorio-min-resources/data"
 	"github.com/brettschalin/factorio-min-resources/geo"
 )
@@ -18,7 +19,6 @@ const (
 	TaskWait
 	TaskCraft
 	TaskHandcraft
-	TaskFuel
 	TaskBuild
 	TaskTake
 	TaskPut
@@ -38,8 +38,6 @@ func (t TaskType) String() string {
 		return "craft"
 	case TaskHandcraft:
 		return "craft"
-	case TaskFuel:
-		return "fuel"
 	case TaskBuild:
 		return "build"
 	case TaskTake:
@@ -63,13 +61,6 @@ func (t *TaskType) MarshalJSON() ([]byte, error) {
 	return json.Marshal(t.String())
 }
 
-const (
-	DirectionNorth = "defines.direction.north"
-	DirectionSouth = "defines.direction.south"
-	DirectionEast  = "defines.direction.east"
-	DirectionWest  = "defines.direction.west"
-)
-
 type Task struct {
 	// tasks.lua needs IDs to properly do prerequisite checks.
 	// Store them here
@@ -89,11 +80,11 @@ type Task struct {
 	// in all other cases it's the number of items.
 	Amount int `json:"amount,omitempty"`
 
-	Entity    string     `json:"entity,omitempty"`
-	Location  *geo.Point `json:"location,omitempty"`
-	Direction string     `json:"direction,omitempty"`
+	Entity    string              `json:"entity,omitempty"`
+	Location  *geo.Point          `json:"location,omitempty"`
+	Direction constants.Direction `json:"direction,omitempty"`
 
-	Slot string `json:"slot,omitempty"` // inventory slot
+	Slot constants.Inventory `json:"slot,omitempty"` // inventory slot
 
 	WaitCondition string `json:"wait_condition,omitempty"`
 }
@@ -236,7 +227,7 @@ func NewCraft(items map[string]int) *Task {
 	return t
 }
 
-func NewWait(entity, slot, item string, amount int) *Task {
+func NewWait(entity string, slot constants.Inventory, item string, amount int) *Task {
 	return &Task{
 		Type:          TaskWait,
 		Entity:        entity,
@@ -247,7 +238,7 @@ func NewWait(entity, slot, item string, amount int) *Task {
 	}
 }
 
-func NewBuild(entity string, direction string) *Task {
+func NewBuild(entity string, direction constants.Direction) *Task {
 	return &Task{
 		Type:      TaskBuild,
 		Entity:    entity,
@@ -255,7 +246,7 @@ func NewBuild(entity string, direction string) *Task {
 	}
 }
 
-func NewTransfer(entity, slot, item string, amount int, take bool) *Task {
+func NewTransfer(entity string, slot constants.Inventory, item string, amount int, take bool) *Task {
 	t := &Task{
 		Slot:   slot,
 		Item:   item,
@@ -309,9 +300,7 @@ func NewMine(resource string, amount int) *Task {
 }
 
 func NewLaunch() *Task {
-
 	return &Task{
 		Type: TaskLaunch,
 	}
-
 }
