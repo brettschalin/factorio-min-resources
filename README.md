@@ -5,10 +5,11 @@ Most speedruns try to complete their goal in the fastest time. Others minimize s
 
 ## How-to
 
-In progress, what I've built so far takes a simplified grammar and translates it into Lua code that can be ran with a (heavily) modified version of [this mod](https://github.com/gotyoke/Factorio-AnyPct-TAS). Follow the instructions in [SETUP.md](./SETUP.md), then
-* compile with `make`, 
-* run `./compile <infile> mods/MinPctTAS_0.0.1/tasks.lua`
-* run `$FACTORIO_INSTALL_PATH/bin/x64/factorio --mod-directory mods`, start a new map and watch it run
+* create a `tas.TAS` object
+* define various `tas.Task`s, `task.Prerequisites().Add()` if needed
+* `tas.Add(tasks)` and check for errors
+* `tas.Export(outFile)` to write the Lua code, save it to `mods/MinPctTAS_0.0.1/tasks.lua`
+* `make start_factorio` and create a new map with the string in `SETUP.md`
 
 ## FAQ
 
@@ -27,7 +28,7 @@ Yes. There's nothing special about the seed I chose aside from it having a good 
 
 ### But how does it actually work?
 
-Short answer: it's a series of scripts that takes some abstract goals and turns them into a TAS.
+Short answer: it's mod and Go command that takes some abstract tasks and turns them into a TAS.
 
 Long answer: I've written a mod (based on https://mods.factorio.com/mod/AnyPctTAS but heavily modified to do what's described here) to take a series of tasks and perform them in order. Instead of the original mod hardcoding the order and which tick they're performed on, this allows you to set prerequisites that must be done before a task is started, so you can have something like "craft 10 iron-gear-wheels but not before you take 20 iron-plates from the furnace." The mod considers a TAS "done" when there's no more tasks left to perform, and it'll print out how many resources were used in the process.
 
@@ -38,17 +39,14 @@ The tasks are split into three queues:
 
 On each tick, the queues are checked in the order listed above (only one is started on any given tick). If all of the task's prerequisites are `done()`, the task is started and marked as such. If a task is already running, we check if it's `done()`, and if it is, the next task is pulled off the queue. Some of the `character_action`s also need locations, but for the purpose of easier script generation they are not hardcoded anywhere in the Go code; we only ever build one of any given building so its name is used by the mod and the "real" location is found at runtime via the logic in `locations.lua`.
 
-`tasks.lua` can be modified directly, but an easier option is to use the Go command I've also provided. That allows you to define more abstract goals and it will do the hard work of turning them into actions to perform. The work is split into 4 phases, the last three of which are contained in `task.Optimize`:
+`tasks.lua` can be modified directly, but an easier option is to use the Go command I've also provided. That allows you to define goals more abstractly (and handles defining prerequisite actions in an automated manner). It works in a couple of phases
 
-- Phase "0": define the tasks. This is done at the point the `task.New...` functions are called. For "craft" tasks, use the recipe data to add prerequisite tasks to craft its ingredients first (or mine ore). For "tech" tasks, research every prerequisite task and craft the science packs
+- define some Tasks using the provided functions (eg, `tas.Craft` or `tas.Tech`)
+- create the dependencies using `task.Prerequisites().Add`
+- create a `tas.TAS` and `Add` the tasks you just created. The returned error will tell you if the run is valid
+    * this works by (a) checking if prerequisites appear in the right order, and (b) performing the state transformations provided by each task and verifying that they're possible in-game
+- call `tas.Export` to write the generated Lua code, which should replace `mods/MinPctTAS_0.0.1/tasks.lua`
 
-- Phase 1: Tasks are ran in order with a state object. "craft", "build", and "mine" all affect the inventory, and if they alter the number of crafts required then the pass will reverse and remove any "extra" crafts/mines that happened earlier. "tech" tasks for technologies that are already researched will likewise be removed along with their requirement to craft the associated science packs. When I get to that point module bonuses will also be applied on this pass
-
-- Phase 2: Tasks are ran again with a new state object. Abstract "craft" tasks are replaced with either handcrafting or (more likely) placing ingredients into a machine, waiting, and grabbing the result. This pass also takes into account mining fuel to power machines and batching the crafts to one stack of material.
-
-- Phase 3: Tasks are reordered so that actions can be done while waiting for something else to finish
-
-After these optimizations are done, the tasks are converted to a lua formatted line and outputted to the new `tasks.lua`
 
 ### What modifications are made to the game?
 

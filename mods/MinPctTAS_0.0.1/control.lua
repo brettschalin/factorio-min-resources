@@ -396,7 +396,7 @@ script.on_event(defines.events.on_tick, function(event)
 		task == "recipe" then
 			building = buildings.get(p, args.entity)
 			destination = building.location
-			current_action.args.location = building.location
+			args.location = building.location
 	elseif task == "build" then
 			loc = locations[args.entity]
 			if not loc then
@@ -406,7 +406,7 @@ script.on_event(defines.events.on_tick, function(event)
 			args.location = loc
 	elseif task == "mine" then
 		if args.location == nil then
-			if current_action.args.resource == nil then
+			if args.resource == nil then
 				building = buildings.get(p, args.entity)
 				destination = building.location
 				args.location = building.location

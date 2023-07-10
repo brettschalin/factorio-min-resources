@@ -1,15 +1,10 @@
 
-build: compile
+# This is the default install path for Mac/Linux. Change it as needed for your system
+FACTORIO_DIR := ${HOME}/factorio
+FACTORIO_BIN := ${FACTORIO_DIR}/bin/x64/factorio
 
-COMPILE_FILES := main.go $(wildcard tasscript/*.go)
+start_factorio:
+	${FACTORIO_BIN} --mod-directory ./mods
 
-compile: $(COMPILE_FILES)
-	go build -o compile ./cmd/compile
 
-tasscript/tas.go: tasscript/tas.y
-	go generate ./...
-
-clean:
-	rm -v tasscript/y.output tasscript/tas.go compile
-
-.PHONY: build clean
+.PHONY: start_factorio

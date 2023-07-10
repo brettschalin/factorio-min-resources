@@ -3,12 +3,11 @@ package state
 import (
 	"github.com/brettschalin/factorio-min-resources/building"
 	"github.com/brettschalin/factorio-min-resources/constants"
-	"github.com/brettschalin/factorio-min-resources/data"
 )
 
 type State struct {
 	// character main inventory
-	Inventory map[string]int
+	Inventory map[string]uint
 
 	TechResearched map[string]bool
 
@@ -25,11 +24,9 @@ type State struct {
 }
 
 func New() *State {
-	f := data.GetFurnace("stone-furnace")
 	s := &State{
 		TechResearched: make(map[string]bool),
 		Buildings:      make(map[string]bool),
-		Furnace:        building.NewFurnace(f),
 	}
 
 	// Starting inventory

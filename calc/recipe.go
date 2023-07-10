@@ -176,39 +176,39 @@ func (e *ErrMissingIngredient) Error() string {
 }
 
 // Handcraft performs a handcrafting action
-func Handcraft(inventory map[string]int, item string, amount int) (newInventory map[string]int, err error) {
+func Handcraft(inventory map[string]uint, item string, amount uint) (newInventory map[string]uint, err error) {
 
 	rec := data.GetRecipe(item)
 	if rec == nil || !rec.CanHandcraft() {
 		return nil, ErrCantHandcraft
 	}
 
-	newInventory = make(map[string]int)
+	newInventory = make(map[string]uint)
 	for k, v := range inventory {
 		newInventory[k] = v
 	}
 
-	ingredients, products := RecipeCost(item, amount)
+	ingredients, products := RecipeCost(item, int(amount))
 
 	for ing, n := range ingredients {
-		diff := n - newInventory[ing]
+		diff := n - int(newInventory[ing])
 		if diff > 0 {
 			if r := data.GetRecipe(ing); !r.CanHandcraft() {
 				return nil, &ErrMissingIngredient{ing, diff}
 			}
 			// not enough in inventory. Try to craft it
-			newInventory, err = Handcraft(newInventory, ing, diff)
+			newInventory, err = Handcraft(newInventory, ing, uint(diff))
 			if err != nil {
 				return nil, err
 			}
 		}
 
 		// now we definitely have enough. Take it out of the inventory
-		newInventory[ing] -= n
+		newInventory[ing] -= uint(n)
 	}
 
 	for p, n := range products {
-		newInventory[p] += n
+		newInventory[p] += uint(n)
 	}
 
 	return newInventory, nil

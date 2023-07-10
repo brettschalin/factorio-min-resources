@@ -98,8 +98,8 @@ var inventoryNames = []string{
 }
 
 func (i Inventory) String() string {
-	if i > 0 && int(i) < len(inventoryNames) {
-		return "defines.inventory" + inventoryNames[i]
+	if i >= 0 && int(i) < len(inventoryNames) {
+		return "defines.inventory." + inventoryNames[i]
 	}
 	return ""
 }

@@ -6,7 +6,8 @@ const (
 	FuelCategoryNuclear  = "nuclear"
 )
 
-var StartingInventory = map[string]int{
+// StartingInventory is the inventory given when starting a new vanilla game
+var StartingInventory = map[string]uint{
 	"stone-furnace":       1,
 	"burner-mining-drill": 1,
 	"wood":                1,

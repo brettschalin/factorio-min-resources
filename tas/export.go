@@ -1,110 +1,22 @@
-package task
+package tas
 
-import (
-	"fmt"
-	"io"
-	"strings"
+import "io"
 
-	"github.com/brettschalin/factorio-min-resources/constants"
-)
-
-func (t *Task) fmtPrereqs() string {
-
-	if len(t.Prerequisites) == 0 {
-		return "nil"
-	}
-	out := strings.Builder{}
-	out.WriteByte('{')
-	out.WriteString(t.Prerequisites[0].GetID())
-
-	for _, p := range t.Prerequisites[1:] {
-		out.WriteString(`,` + p.GetID())
-	}
-	out.WriteByte('}')
-
-	return out.String()
-}
-
-func (t *Task) fmtArgs() string {
-	switch t.Type {
-	case TaskWalk:
-		return fmt.Sprintf("location = {x = %.2f, y = %.2f}", t.Location.X, t.Location.Y)
-	case TaskWait:
-		return fmt.Sprintf(`done = %s(%q, %q, %d)`, t.WaitCondition, t.Entity, t.Item, t.Amount)
-	case TaskCraft, TaskHandcraft:
-		return fmt.Sprintf(`item = %q, amount = %d`, t.Item, t.Amount)
-	case TaskBuild:
-		if t.Direction != constants.DirectionNone {
-			return fmt.Sprintf(`entity = %q, direction = %s`, t.Entity, t.Direction)
-		} else {
-			return fmt.Sprintf(`entity = %q`, t.Entity)
-		}
-	case TaskTake, TaskPut:
-		return fmt.Sprintf(`entity = %q, inventory = %s, item = %q, amount = %d`,
-			t.Entity, t.Slot, t.Item, t.Amount)
-	case TaskTech:
-		return fmt.Sprintf(`tech = %q`, t.Tech)
-	case TaskMine:
-		if t.Location != nil {
-			return fmt.Sprintf(`location = {x = %.2f, y = %.2f`, t.Location.X, t.Location.Y)
-		} else if t.Item != "" {
-			return fmt.Sprintf(`resource = %q, amount = %d`, t.Item, t.Amount)
-		} else {
-			return fmt.Sprintf(`entity = %q`, t.Entity)
-		}
-	case TaskLaunch:
-		return `entity = "rocket-silo"`
-	default:
-		return ""
-	}
-}
-
-// outputs the (Lua) tasks required to perform this action,
-// and the ID of the last task to run
-func (t *Task) Export(lastID string) (string, string) {
-	out := strings.Builder{}
-
-	var outLine string
-
-	for _, p := range t.Prerequisites {
-		outLine, lastID = p.Export(lastID)
-		out.WriteString(outLine)
-		out.WriteByte('\n')
-	}
-
-	// meta tasks only appear for grouping purposes. Do not actually output them
-	if t.Type == TaskMeta {
-		return out.String(), lastID
-	}
-
-	out.WriteString(t.GetID() + " = add_task(")
-	typ := t.Type
-	out.WriteString("\"" + typ.String() + "\"")
-
-	out.WriteString("," + t.fmtPrereqs())
-	out.WriteString(", {" + t.fmtArgs() + "}")
-
-	out.WriteString(")\n")
-	return out.String(), t.GetID()
-}
-
-func WriteTasksFile(w io.StringWriter, task *Task) error {
+func (tas *TAS) Export(w io.Writer) error {
 
 	var err error
 
-	if _, err = w.WriteString(TasksLuaHeader); err != nil {
+	if _, err = w.Write([]byte(TasksLuaHeader)); err != nil {
 		return err
 	}
 
-	var out string
-
-	out, _ = task.Export("")
-	if _, err = w.WriteString(out); err != nil {
-		return err
+	for _, task := range tas.tasks {
+		if _, err = w.Write(task.Export()); err != nil {
+			return err
+		}
 	}
 
-	_, err = w.WriteString(TasksLuaFooter)
-
+	_, err = w.Write([]byte(TasksLuaFooter))
 	return err
 }
 
@@ -175,7 +87,7 @@ local function has_inventory(inv, item, amount, exact, slot)
             end
             -- Search for an inventory that might have the item
             for k, inv in pairs(slots) do
-                inventory = b.get_inventory(defines.inventory[inv])
+                inventory = b.get_inventory(inv)
                 local cmp = false
                 if inventory ~= nil then
                     local cnt = inventory.get_item_count(item) 
