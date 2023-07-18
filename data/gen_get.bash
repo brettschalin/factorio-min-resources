@@ -20,6 +20,9 @@ for thing in AssemblingMachine Boiler Furnace Generator Item Lab Module RocketSi
 	cat <<EOF >> $OUTFILE
 func Get$thing(name string) *$thing {
 	x := d.$thing[name]
+	if x.Name == "" {
+		return nil
+	}
 	return &x
 }
 

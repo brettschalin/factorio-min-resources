@@ -47,12 +47,17 @@ On each tick, the queues are checked in the order listed above (only one is star
     * this works by (a) checking if prerequisites appear in the right order, and (b) performing the state transformations provided by each task and verifying that they're possible in-game
 - call `tas.Export` to write the generated Lua code, which should replace `mods/MinPctTAS_0.0.1/tasks.lua`
 
-
 ### What modifications are made to the game?
 
 Aside from the obvious "character is being controlled by the script," I've also made a couple other changes for convenience. They don't affect the quantity of resources required but they do make the run faster to code/execute.
 * night does not exist. This is because most of the run has machines powered by one solar panel
 * character inventory size is greatly increased. This is also not necessary, but not doing it would require that I implement logic to drop things on the ground and pick them up and that seems like more trouble that it's worth
+
+
+### Just how painful is this?
+
+Extremely. Mining drills and machines and extensive power setups are extra resources that don't need to be used, so everything is hand-mined (`steel-axe` is also not necessary and won't be researched), and every craft is either done by hand or in a machine that's powered by one solar panel. Just to give you an idea, the run in `main.go` builds a steel furnace and solar panel and takes over five hours of real-time to mine, smelt, craft, and research it all; that's a sixth of the required technologies and by far the cheapest so I won't be surprised if the full run ends in the hundreds of hours
+
 
 ## LICENSE
 

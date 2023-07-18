@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/brettschalin/factorio-min-resources/constants"
+	"github.com/brettschalin/factorio-min-resources/building"
 	"github.com/brettschalin/factorio-min-resources/data"
 	"github.com/brettschalin/factorio-min-resources/tas"
 )
@@ -18,103 +18,35 @@ func main() {
 
 	t := tas.TAS{}
 
-	tasks := tas.Tasks{
-		tas.Tech("automation"),
-		tas.Build("stone-furnace", constants.DirectionNorth),
-		tas.MineResource("coal", 7),
-		tas.Transfer("stone-furnace", "coal", constants.InventoryFuel, 7, false),
-		tas.MineResource("iron-ore", 50),
-		tas.Transfer("stone-furnace", "iron-ore", constants.InventoryFurnaceSource, 50, false),
-		tas.MineResource("iron-ore", 18),
-		tas.MineResource("copper-ore", 19),
-		tas.WaitInventory("stone-furnace", "iron-plate", constants.InventoryFurnaceResult, 50),
-		tas.Transfer("stone-furnace", "iron-plate", constants.InventoryFurnaceResult, 50, true),
+	// this will take a while, might as well speed it up for us
+	t.Add(tas.Speed(100))
 
-		tas.Transfer("stone-furnace", "iron-ore", constants.InventoryFurnaceSource, 18, false),
-		tas.WaitInventory("stone-furnace", "iron-plate", constants.InventoryFurnaceResult, 18),
-		tas.Transfer("stone-furnace", "iron-plate", constants.InventoryFurnaceResult, 18, true),
-		tas.MineResource("stone", 5),
+	t.Add(makeTechTasks()...)
 
-		tas.Transfer("stone-furnace", "copper-ore", constants.InventoryFurnaceSource, 19, false),
-		tas.WaitInventory("stone-furnace", "copper-plate", constants.InventoryFurnaceResult, 19),
-		tas.Transfer("stone-furnace", "copper-plate", constants.InventoryFurnaceResult, 19, true),
-	}
+	t.Add(makePowerSetup()...)
 
-	cTasks := tas.Tasks{
-		tas.Craft("steam-engine", 1),
-		tas.Craft("offshore-pump", 1),
-		tas.Craft("lab", 1),
-		tas.Craft("small-electric-pole", 1),
-		tas.Craft("boiler", 1),
-	}
+	f := building.NewFurnace(data.GetFurnace("stone-furnace"))
+	l := building.NewLab(data.GetLab("lab"))
+	b := building.NewBoiler(data.GetBoiler("boiler"))
 
-	bTasks := tas.Tasks{
-		tas.Build("steam-engine", constants.DirectionEast),
-		tas.Build("offshore-pump", constants.DirectionNorth),
-		tas.Build("lab", constants.DirectionNorth),
-		tas.Build("small-electric-pole", constants.DirectionNorth),
-		tas.Build("boiler", constants.DirectionEast),
-	}
-
-	// Ensure we have materials before crafting
-	cTasks[0].Prerequisites().Add(tasks[12])
-	cTasks[1].Prerequisites().Add(tasks[16])
-
-	// make sure the thing's crafted before building it
-
-	bTasks[0].Prerequisites().Add(cTasks[0])
-	bTasks[1].Prerequisites().Add(cTasks[1])
-	bTasks[2].Prerequisites().Add(cTasks[2])
-	bTasks[3].Prerequisites().Add(cTasks[3])
-	bTasks[4].Prerequisites().Add(cTasks[4])
-
-	// science
-	sTasks := tas.Tasks{
-
-		tas.MineResource("coal", 15),
-
-		tas.Transfer("stone-furnace", "coal", constants.InventoryFuel, 5, false),
-
-		tas.MineResource("iron-ore", 20),
-
-		tas.Transfer("stone-furnace", "iron-ore", constants.InventoryFurnaceSource, 20, false),
-		tas.MineResource("copper-ore", 10),
-		tas.WaitInventory("stone-furnace", "iron-plate", constants.InventoryFurnaceResult, 20),
-		tas.Transfer("stone-furnace", "iron-plate", constants.InventoryFurnaceResult, 20, true),
-
-		tas.Craft("iron-gear-wheel", 10),
-
-		tas.Transfer("stone-furnace", "copper-ore", constants.InventoryFurnaceSource, 10, false),
-		tas.WaitInventory("stone-furnace", "copper-plate", constants.InventoryFurnaceResult, 10),
-		tas.Transfer("stone-furnace", "copper-plate", constants.InventoryFurnaceResult, 10, true),
-
-		tas.Craft("automation-science-pack", 10),
-
-		tas.Transfer("boiler", "coal", constants.InventoryFuel, 10, false),
-		tas.Transfer("lab", "automation-science-pack", constants.InventoryLabInput, 10, false),
-	}
-
-	// get iron before crafting gears
-	sTasks[7].Prerequisites().Add(sTasks[6])
-
-	// get copper before crafting packs
-	sTasks[11].Prerequisites().Add(sTasks[10])
-
-	// get packs before putting them in the lab
-	sTasks[13].Prerequisites().Add(sTasks[11])
-
-	if err = t.Add(tasks...); err != nil {
+	if err = t.Add(researchTech("steel-processing", f, l, b)...); err != nil {
 		panic(err)
 	}
-	if err = t.Add(cTasks...); err != nil {
+
+	if err = t.Add(researchTech("logistic-science-pack", f, l, b)...); err != nil {
 		panic(err)
 	}
-	if err = t.Add(bTasks...); err != nil {
+
+	if err = t.Add(buildSolarPanel(f.Name())...); err != nil {
 		panic(err)
 	}
-	if err = t.Add(sTasks...); err != nil {
+
+	if err = t.Add(buildSteelFurnace(true)...); err != nil {
 		panic(err)
 	}
+
+	b = nil
+	f = building.NewFurnace(data.GetFurnace("steel-furnace"))
 
 	of := os.Stdout
 
@@ -122,4 +54,69 @@ func main() {
 		panic(err)
 	}
 
+}
+
+// the technologies to research, in this specific order
+var techs = []string{
+	"steel-processing",
+	"logistic-science-pack", // green science packs
+	"automation",
+	"electronics",
+	"optics",
+	"solar-energy",                 // solar panel
+	"advanced-material-processing", // steel furnace
+	// "automation-2",
+	// "engine",
+	// "fluid-handling",
+	// "oil-processing", // refinery/chem plant
+	// "plastics",
+	// "advanced-electronics",
+	// "modules",
+	// "productivity-module", // first modules!
+	// "sulfur-processing",
+	// "chemical-science-pack", // blue science packs
+	// "advanced-material-processing-2", // electric furnace
+	// "advanced-electronics-2",
+	// "productivity-module-2", // better modules
+	// "logistics",
+	// "logistics-2",
+	// "railway",
+	// "production-science-pack", // purple science packs
+	// "productivity-module-3", // the best modules
+	// "speed-module",
+	// // "automation-3" // *
+	// "advanced-oil-processing",
+	// "flammables",
+	// "rocket-fuel",
+	// "concrete",
+	// "speed-module-2",
+	// "speed-module-3",
+	// "lubricant",
+	// "electric-engine",
+	// "battery",
+	// "robotics",
+	// "low-density-structure",
+	// "utility-science-pack", // yellow science packs
+	// "rocket-control-unit",
+	// "rocket-silo",
+
+	// * this needs analysis. Are the two extra module slots an assembler 3 have
+	// worth the cost of researching the tech, seeing as it isn't required to build the silo?
+
+}
+
+// exists for easier prerequisite definitions
+var techMap = map[string]tas.Task{}
+
+func makeTechTasks() tas.Tasks {
+
+	tasks := make(tas.Tasks, len(techs))
+
+	for i, t := range techs {
+		tech := tas.Tech(t)
+		tasks[i] = tech
+		techMap[t] = tech
+	}
+
+	return tasks
 }

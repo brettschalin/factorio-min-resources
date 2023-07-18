@@ -325,18 +325,18 @@ func TestRecipeAllIngredients(t *testing.T) {
 func TestHandcraft(t *testing.T) {
 	var tests = []struct {
 		item        string
-		amount      int
-		inventory   map[string]int
-		expectedInv map[string]int
+		amount      uint
+		inventory   map[string]uint
+		expectedInv map[string]uint
 		expectedErr error
 	}{
 		{
 			item:   "iron-gear-wheel",
 			amount: 5,
-			inventory: map[string]int{
+			inventory: map[string]uint{
 				"iron-plate": 11,
 			},
-			expectedInv: map[string]int{
+			expectedInv: map[string]uint{
 				"iron-plate":      1,
 				"iron-gear-wheel": 5,
 			},
@@ -344,13 +344,13 @@ func TestHandcraft(t *testing.T) {
 		{
 			item:   "advanced-circuit",
 			amount: 1,
-			inventory: map[string]int{
+			inventory: map[string]uint{
 				"iron-plate":   20,
 				"copper-plate": 10,
 				"plastic-bar":  10,
 				"copper-cable": 3,
 			},
-			expectedInv: map[string]int{
+			expectedInv: map[string]uint{
 				"iron-plate":       18,
 				"copper-plate":     6,
 				"plastic-bar":      8,
@@ -367,7 +367,7 @@ func TestHandcraft(t *testing.T) {
 		{
 			item:   "pistol",
 			amount: 1,
-			inventory: map[string]int{
+			inventory: map[string]uint{
 				"copper-plate": 5,
 			},
 			expectedErr: &ErrMissingIngredient{

@@ -17,7 +17,7 @@ func TechEnergyCost(lab *building.Lab, tech string) float64 {
 }
 
 // BoilerFuelCost returns the amount of fuel required to create the given amount of energy.
-func BoilerFuelCost(boiler building.Boiler, fuel string, energy float64) float64 {
+func BoilerFuelCost(boiler *building.Boiler, fuel string, energy float64) float64 {
 	item := data.GetItem(fuel)
 
 	// TODO: factor in b.Entity.Effectivity. Vanilla boiler is 1

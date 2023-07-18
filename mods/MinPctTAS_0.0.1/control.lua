@@ -321,13 +321,25 @@ script.on_event(defines.events.on_tick, function(event)
 	
 	local p = game.players[1]
 	local pos = p.position
-
+	
 	-- we're finished when the queues are empty and the last tasks are done
 	if queues.is_empty("character_action") and current_action == nil and
 	   queues.is_empty("character_craft") and current_craft == nil and
 	   queues.is_empty("lab") and current_tech == nil then
 		
-		p.print(string.format("(%.2f, %.2f) Complete after %f seconds (%d ticks)", pos.x, pos.y, p.online_time / 60, p.online_time))	
+		time_str = ""
+		seconds = p.online_time / 60
+		minutes = seconds / 60
+		hours = minutes / 60
+		if hours >= 1 then
+			time_str = time_str .. string.format("%d hours, ", hours)
+		end
+		if minutes >= 1 then
+			time_str = time_str .. string.format("%d minutes, ", minutes % 60)
+		end
+		time_str = time_str .. string.format("%d seconds", seconds % 60)
+
+		p.print(string.format("(%.2f, %.2f) Complete after %s (%d ticks)", pos.x, pos.y, time_str, p.online_time))	
 		p.print("Resources used:"..game.table_to_json(resources_used))
 		dbg = 0
 		done = true

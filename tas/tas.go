@@ -67,6 +67,7 @@ func (tas *TAS) verifyState(s *state.State) error {
 
 			s.Inventory[t.Entity]--
 			s.Buildings[t.Entity] = true
+
 		case *taskMine:
 
 			if t.Resource != "" {
@@ -102,6 +103,11 @@ func (tas *TAS) verifyState(s *state.State) error {
 				}
 			}
 			s.TechResearched[t.Tech] = true
+		}
+		for k, v := range s.Inventory {
+			if v == 0 {
+				delete(s.Inventory, k)
+			}
 		}
 	}
 

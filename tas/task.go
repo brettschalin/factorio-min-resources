@@ -37,6 +37,7 @@ const (
 	TaskRecipe
 	TaskTech
 	TaskMine
+	TaskSpeed
 	TaskLaunch
 )
 
@@ -60,6 +61,8 @@ func (t TaskType) String() string {
 		return "tech"
 	case TaskMine:
 		return "mine"
+	case TaskSpeed:
+		return "speed"
 	case TaskLaunch:
 		return "launch"
 	default:
@@ -168,6 +171,7 @@ type taskWait struct {
 	Slot   constants.Inventory
 	Item   string
 	Amount uint
+	Exact  bool
 
 	// n ticks
 	// NTicks uint
@@ -180,8 +184,8 @@ func (t *taskWait) ID() string {
 func (t *taskWait) Export() []byte {
 	return t.export(
 		t.ID(),
-		fmt.Sprintf(`done = has_inventory(%q, %q, %d, false, %s)`,
-			t.Entity, t.Item, t.Amount, t.Slot),
+		fmt.Sprintf(`done = has_inventory(%q, %q, %d, %t, %s)`,
+			t.Entity, t.Item, t.Amount, t.Exact, t.Slot),
 		TaskWait,
 	)
 }
@@ -320,6 +324,23 @@ func (t *taskTech) Export() []byte {
 	)
 }
 
+type taskSpeed struct {
+	baseTask
+	Speed float64
+}
+
+func (t *taskSpeed) ID() string {
+	return t.getID(TaskSpeed)
+}
+
+func (t *taskSpeed) Export() []byte {
+	return t.export(
+		t.ID(),
+		fmt.Sprintf(`n = %.2f`, t.Speed),
+		TaskSpeed,
+	)
+}
+
 type taskLaunch struct {
 	baseTask
 }
@@ -338,6 +359,8 @@ func (t *taskLaunch) Export() []byte {
 
 /**** FUNCTIONS ****/
 
+// Build constructs a building facing the given direction. Locations
+// are hardcoded in locations.lua
 func Build(entity string, direction constants.Direction) Task {
 	return &taskBuild{
 		Entity:    entity,
@@ -345,6 +368,7 @@ func Build(entity string, direction constants.Direction) Task {
 	}
 }
 
+// Craft starts a handcrafting action
 func Craft(recipe string, amount uint) Task {
 	return &taskCraft{
 		Recipe: recipe,
@@ -352,16 +376,21 @@ func Craft(recipe string, amount uint) Task {
 	}
 }
 
+// Launch starts the rocket launch sequence
 func Launch() Task {
 	return &taskLaunch{}
 }
 
+// MineEntity mines a building. Locations are hardcoded
+// in locations.lua
 func MineEntity(entity string) Task {
 	return &taskMine{
 		Entity: entity,
 	}
 }
 
+// MineResource mines a resource (likely ore). As with the other
+// methods, the locations are hardcoded in locations.lua
 func MineResource(resource string, amount uint) Task {
 	return &taskMine{
 		Resource: resource,
@@ -369,6 +398,7 @@ func MineResource(resource string, amount uint) Task {
 	}
 }
 
+// Transfer takes resources from or adds them to the given inventory
 func Transfer(entity, item string, slot constants.Inventory, amount uint, take bool) Task {
 	if take {
 		return &taskTake{
@@ -386,6 +416,7 @@ func Transfer(entity, item string, slot constants.Inventory, amount uint, take b
 	}
 }
 
+// Recipe sets the current recipe on the given machine
 func Recipe(entity, recipe string) Task {
 	return &taskRecipe{
 		Entity: entity,
@@ -393,18 +424,28 @@ func Recipe(entity, recipe string) Task {
 	}
 }
 
+// Tech starts researching the given technology
 func Tech(tech string) Task {
 	return &taskTech{
 		Tech: tech,
 	}
 }
 
-func WaitInventory(entity, item string, slot constants.Inventory, amount uint) Task {
+// WaitInventory pauses task execution until certain inventory criteria are met
+func WaitInventory(entity, item string, slot constants.Inventory, amount uint, exact bool) Task {
 	return &taskWait{
 		Entity: entity,
 		Item:   item,
 		Slot:   slot,
 		Amount: amount,
+		Exact:  exact,
+	}
+}
+
+// Speed sets the game speed. This can also safely be done with the in-game console by typing `/c game.speed = <n>`
+func Speed(speed float64) Task {
+	return &taskSpeed{
+		Speed: speed,
 	}
 }
 
@@ -414,6 +455,7 @@ func WaitInventory(entity, item string, slot constants.Inventory, amount uint) T
 // 	}
 // }
 
+// Walk moves the character to the given location
 func Walk(location geo.Point) Task {
 	return &taskWalk{
 		Location: location,
@@ -441,10 +483,58 @@ func MachineCraft(recipe, machine string, amount uint) Tasks {
 			continue
 		}
 		tasks.Add(
-			WaitInventory(machine, p.Name, constants.InventoryAssemblingMachineOutput, amount*uint(p.Amount)),
+			WaitInventory(machine, p.Name, constants.InventoryAssemblingMachineOutput, amount*uint(p.Amount), true),
 			Transfer(machine, p.Name, constants.InventoryAssemblingMachineOutput, amount*uint(p.Amount), true),
 		)
 	}
 
 	return tasks
+}
+
+func min[T ~int | ~uint](a, b T) T {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+// MineAndSmelt properly intersperses mining, waiting, and transferring
+// ores to work around stack size limitations. This does assume the furnace is properly fueled
+func MineAndSmelt(ore, plate, furnace string, amount uint) Tasks {
+	item := data.GetItem(ore)
+	batchSize := uint(item.StackSize)
+
+	amt := min(amount, batchSize)
+
+	tasks := Tasks{
+		MineResource(ore, amt),
+	}
+
+	for amount > 0 {
+		tasks.Add(
+			Transfer(furnace, ore, constants.InventoryFurnaceSource, amt, false),
+		)
+
+		// mine the next batch, but only if we need to
+		amount -= amt
+		nextBatch := min(amount, batchSize)
+		if nextBatch > 0 {
+			tasks.Add(MineResource(ore, nextBatch))
+		}
+		tasks.Add(
+			WaitInventory(furnace, plate, constants.InventoryFurnaceResult, amt, true),
+			Transfer(furnace, plate, constants.InventoryFurnaceResult, amt, true),
+		)
+
+		amt = nextBatch
+	}
+
+	return tasks
+}
+
+func FuelMachine(fuel, entity string, amount uint) Tasks {
+	return Tasks{
+		MineResource(fuel, amount),
+		Transfer(entity, fuel, constants.InventoryFuel, amount, false),
+	}
 }

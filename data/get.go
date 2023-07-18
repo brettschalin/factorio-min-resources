@@ -11,41 +11,64 @@ func GetTech(tech string) *Technology {
 
 func GetAssemblingMachine(name string) *AssemblingMachine {
 	x := d.AssemblingMachine[name]
+	if x.Name == "" {
+		return nil
+	}
 	return &x
 }
 
 func GetBoiler(name string) *Boiler {
 	x := d.Boiler[name]
+	if x.Name == "" {
+		return nil
+	}
 	return &x
 }
 
 func GetFurnace(name string) *Furnace {
 	x := d.Furnace[name]
+	if x.Name == "" {
+		return nil
+	}
 	return &x
 }
 
 func GetGenerator(name string) *Generator {
 	x := d.Generator[name]
+	if x.Name == "" {
+		return nil
+	}
 	return &x
 }
 
 func GetItem(name string) *Item {
 	x := d.Item[name]
+	if x.Name == "" {
+		return nil
+	}
 	return &x
 }
 
 func GetLab(name string) *Lab {
 	x := d.Lab[name]
+	if x.Name == "" {
+		return nil
+	}
 	return &x
 }
 
 func GetModule(name string) *Module {
 	x := d.Module[name]
+	if x.Name == "" {
+		return nil
+	}
 	return &x
 }
 
 func GetRocketSilo(name string) *RocketSilo {
 	x := d.RocketSilo[name]
+	if x.Name == "" {
+		return nil
+	}
 	return &x
 }
-

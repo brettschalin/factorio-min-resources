@@ -9,11 +9,11 @@ local locations = {
     ["small-electric-pole"] = {x = -16.5, y = -22.5},
     ["offshore-pump"] = {x = -20.5, y = -27.5},
     ["steam-engine"] = {x = -16.5, y = -25.5},
+    ["solar-panel"] = {x = -14.5, y = -24.5}
 }
 
 -- TODO:
 -- * electric-furnace
--- * solar-panel
 -- * assembling-machine-2
 -- * oil-refinery
 -- * chemical-plant
