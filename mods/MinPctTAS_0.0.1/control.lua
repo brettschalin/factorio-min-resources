@@ -410,7 +410,7 @@ script.on_event(defines.events.on_tick, function(event)
 			destination = building.location
 			args.location = building.location
 	elseif task == "build" then
-			loc = locations[args.entity]
+			loc = locations.get(args.entity, args.n)
 			if not loc then
 				error("don't know where to place " .. args.entity)
 			end
@@ -434,7 +434,7 @@ script.on_event(defines.events.on_tick, function(event)
 
 	-- now try to do the task
 	if task == "build" then
-		cr = build(p, args.location, args.entity, args.direction or defines.direction.north)
+		cr = build(p, args.location, args.entity, args.location.dir or defines.direction.north)
 	elseif task == "recipe" then
 		cr = recipe(p, args.location, args.recipe)
 	elseif task == "mine" then

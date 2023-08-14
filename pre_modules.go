@@ -19,7 +19,7 @@ import (
 func makePowerSetup() tas.Tasks {
 
 	tasks := tas.Tasks{
-		tas.Build("stone-furnace", constants.DirectionNorth),
+		tas.Build("stone-furnace", 0),
 		tas.MineResource("coal", 7),
 		tas.Transfer("stone-furnace", "coal", constants.InventoryFuel, 7, false),
 		tas.MineResource("iron-ore", 50),
@@ -44,11 +44,12 @@ func makePowerSetup() tas.Tasks {
 		tas.Craft("small-electric-pole", 1),
 		tas.Craft("boiler", 1),
 
-		tas.Build("steam-engine", constants.DirectionEast),
-		tas.Build("offshore-pump", constants.DirectionNorth),
-		tas.Build("lab", constants.DirectionNorth),
-		tas.Build("small-electric-pole", constants.DirectionNorth),
-		tas.Build("boiler", constants.DirectionEast),
+		tas.Build("steam-engine", 0),
+		tas.Build("offshore-pump", 0),
+		tas.Build("lab", 0),
+		tas.Build("small-electric-pole", 1),
+		tas.Build("small-electric-pole", 2),
+		tas.Build("boiler", 0),
 	}
 
 	// Ensure we have materials before crafting
@@ -93,53 +94,35 @@ func researchTech(tech string, f *building.Furnace, l *building.Lab, b *building
 		}
 	}
 
-	// get the fuel cost for it, and how much of each ore to smelt
-	var (
-		smeltCoal  float64
-		toSmelt    = map[string]uint{}
-		smeltProds = map[string]string{} // ore -> plate
-	)
-
-	// finding recipes from ingredients is hard, hardcoding is easy. This does only work with
-	// red and green science but since we're really only using this for steel and green pack research anyways
-	// it'll probably be fine
-	toSmelt["iron-ore"] = uint(baseCost["iron-ore"])
-	toSmelt["copper-ore"] = uint(baseCost["copper-ore"])
-	smeltProds["iron-ore"] = "iron-plate"
-	smeltProds["copper-ore"] = "copper-plate"
-
-	for c, n := range toSmelt {
-		rec := data.GetRecipe(smeltProds[c])
-
-		if rec == nil || !f.Entity.CanCraft(rec) {
-			continue
-		}
-
-		smeltCoal += calc.FuelFromRecipes(f, rec, int(n), "coal")
-	}
+	// get the fuel cost, and how much of each ore to smelt
+	var smeltCoal float64
+	rec := data.GetRecipe("iron-plate")
+	smeltCoal += calc.FuelFromRecipes(f, rec, baseCost["iron-ore"], "coal")
+	rec = data.GetRecipe("copper-plate")
+	smeltCoal += calc.FuelFromRecipes(f, rec, baseCost["copper-ore"], "coal")
 
 	tasks.Add(tas.FuelMachine("coal", f.Name(), uint(math.Ceil(smeltCoal)))...)
 
-	for ore, n := range toSmelt {
-		tasks.Add(tas.MineAndSmelt(ore, smeltProds[ore], f.Name(), n)...)
-	}
+	// finding smelt products from ores is hard, hardcoding is easy. As a consequence this method only works
+	// with red and green science but those are the early/mid technologies anyways so it'll be fine
+	tasks.Add(tas.MineAndSmelt("iron-ore", f.Name(), uint(baseCost["iron-ore"]))...)
+	tasks.Add(tas.MineAndSmelt("copper-ore", f.Name(), uint(baseCost["copper-ore"]))...)
 
 	// craft the science packs
-	first := true
-	for p, amt := range packs {
-		t := tas.Craft(p, uint(amt))
-		if first {
-			first = false
-			t.Prerequisites().Add(tasks[len(tasks)-1])
-		}
-		tasks.Add(t)
+	t := tas.Craft("automation-science-pack", uint(packs["automation-science-pack"]))
+	t.Prerequisites().Add(tasks[len(tasks)-1])
+	tasks.Add(t)
+
+	lTasks := tas.Tasks{
+		tas.Transfer(l.Name(), "automation-science-pack", constants.InventoryLabInput, uint(uint(packs["automation-science-pack"])), false),
 	}
+	lTasks[0].Prerequisites().Add(tasks[len(tasks)-1])
 
-	lTasks := tas.Tasks{}
-
-	for p, n := range packs {
-		t := tas.Transfer(l.Name(), p, constants.InventoryLabInput, uint(n), false)
+	if packs["logistic-science-pack"] > 0 {
+		tasks.Add(tas.Craft("logistic-science-pack", uint(packs["logistic-science-pack"])))
+		t := tas.Transfer(l.Name(), "logistic-science-pack", constants.InventoryLabInput, uint(uint(packs["logistic-science-pack"])), false)
 		t.Prerequisites().Add(tasks[len(tasks)-1])
+
 		lTasks.Add(t)
 	}
 
@@ -156,13 +139,13 @@ func buildSolarPanel(furnace string) tas.Tasks {
 	// mine and smelt 1975 iron. Done in batches because of fuel capacity limitations
 
 	tasks.Add(tas.FuelMachine("coal", furnace, 49)...)
-	tasks.Add(tas.MineAndSmelt("iron-ore", "iron-plate", furnace, 690)...)
+	tasks.Add(tas.MineAndSmelt("iron-ore", furnace, 690)...)
 
 	tasks.Add(tas.FuelMachine("coal", furnace, 49)...)
-	tasks.Add(tas.MineAndSmelt("iron-ore", "iron-plate", furnace, 690)...)
+	tasks.Add(tas.MineAndSmelt("iron-ore", furnace, 690)...)
 
 	tasks.Add(tas.FuelMachine("coal", furnace, 43)...)
-	tasks.Add(tas.MineAndSmelt("iron-ore", "iron-plate", furnace, 595)...)
+	tasks.Add(tas.MineAndSmelt("iron-ore", furnace, 595)...)
 
 	c := tas.Craft("iron-gear-wheel", 675)
 	c.Prerequisites().Add(tasks[len(tasks)-1])
@@ -173,7 +156,7 @@ func buildSolarPanel(furnace string) tas.Tasks {
 	// mine and smelt 675 copper
 	tasks.Add(tas.FuelMachine("coal", furnace, 49)...)
 
-	smeltTasks := tas.MineAndSmelt("copper-ore", "copper-plate", furnace, 675)
+	smeltTasks := tas.MineAndSmelt("copper-ore", furnace, 675)
 
 	tasks.Add(smeltTasks...)
 
@@ -236,8 +219,8 @@ func buildSolarPanel(furnace string) tas.Tasks {
 	)
 
 	tasks.Add(tas.FuelMachine("coal", furnace, 6)...)
-	tasks.Add(tas.MineAndSmelt("iron-ore", "iron-plate", furnace, 40)...)
-	tasks.Add(tas.MineAndSmelt("copper-ore", "copper-plate", furnace, 28)...)
+	tasks.Add(tas.MineAndSmelt("iron-ore", furnace, 40)...)
+	tasks.Add(tas.MineAndSmelt("copper-ore", furnace, 28)...)
 	tasks.Add(
 		tas.Transfer(furnace, "iron-plate", constants.InventoryFurnaceSource, 25, false),
 		tas.WaitInventory(furnace, "steel-plate", constants.InventoryFurnaceResult, 5, true),
@@ -246,13 +229,13 @@ func buildSolarPanel(furnace string) tas.Tasks {
 
 	tasks.Add(
 		tas.Craft("solar-panel", 1),
-		tas.MineEntity("steam-engine"),
-		tas.MineEntity("boiler"),
-		tas.Build("solar-panel", constants.DirectionNone),
+		tas.MineEntity("steam-engine", 0),
+		// boiler's needed for water flow, don't mine it
+		tas.Build("solar-panel", 0),
 	)
-	tasks[len(tasks)-4].Prerequisites().Add(techMap["solar-energy"])
 	tasks[len(tasks)-3].Prerequisites().Add(techMap["solar-energy"])
-	tasks[len(tasks)-1].Prerequisites().Add(tasks[len(tasks)-4])
+	tasks[len(tasks)-2].Prerequisites().Add(techMap["solar-energy"])
+	tasks[len(tasks)-1].Prerequisites().Add(tasks[len(tasks)-3])
 
 	return tasks
 }
@@ -267,7 +250,7 @@ func buildSteelFurnace(hasSolar bool) tas.Tasks {
 
 	tasks.Add(tas.FuelMachine("coal", "stone-furnace", 41)...)
 
-	tasks.Add(tas.MineAndSmelt("iron-ore", "iron-plate", "stone-furnace", 564)...)
+	tasks.Add(tas.MineAndSmelt("iron-ore", "stone-furnace", 564)...)
 
 	c = tas.Craft("transport-belt", 38)
 	c.Prerequisites().Add(tasks[len(tasks)-1])
@@ -279,7 +262,7 @@ func buildSteelFurnace(hasSolar bool) tas.Tasks {
 
 	// we have one extra copper-cable from the solar panel making, and that's enough to take this
 	// from 188 to 187
-	tasks.Add(tas.MineAndSmelt("copper-ore", "copper-plate", "stone-furnace", 187)...)
+	tasks.Add(tas.MineAndSmelt("copper-ore", "stone-furnace", 187)...)
 
 	t := tas.Tasks{
 		tas.Transfer("lab", "automation-science-pack", constants.InventoryLabInput, 75, false),
@@ -332,17 +315,64 @@ func buildSteelFurnace(hasSolar bool) tas.Tasks {
 	c.Prerequisites().Add(techMap["advanced-material-processing"])
 
 	tasks.Add(
-		tas.Speed(1),
 		c,
 		// there's about 10% of a coal left in this, hopefully that doesn't
 		// come back to bite us. Done this way because fast replace didn't work and just
 		// made two entites overlapping the same space instead
-		tas.MineEntity("stone-furnace"),
+		tas.MineEntity("stone-furnace", 0),
 	)
 
-	c = tas.Build("steel-furnace", constants.DirectionNorth)
+	c = tas.Build("steel-furnace", 0)
 	c.Prerequisites().Add(tasks[len(tasks)-2:]...)
 	tasks.Add(c)
+
+	return tasks
+}
+
+func buildOilSetup(f *building.Furnace) tas.Tasks {
+	tasks := tas.Tasks{}
+
+	// how many pipes to build in the map. See locations.lua for where they go
+	const nPipes = 38
+
+	tasks.Add(tas.FuelMachine("coal", f.Name(), 15)...)
+
+	tasks.Add(tas.MineAndSmelt("iron-ore", f.Name(), 220+nPipes)...)
+	tasks.Add(tas.MineAndSmelt("copper-ore", f.Name(), 30)...)
+
+	t := tas.Craft("electronic-circuit", 20)
+	t.Prerequisites().Add(tasks[len(tasks)-1])
+	tasks.Add(t)
+	tasks.Add(
+		tas.Craft("iron-gear-wheel", 25),
+		tas.Craft("pipe", 25+nPipes),
+	)
+
+	tasks.Add(tas.MineAndSmelt("stone", f.Name(), 20)...)
+
+	// smelt 25 steel. Done in batches
+	tasks.Add(tas.MachineCraft("steel-plate", f.Name(), 20)...)
+	tasks.Add(tas.MachineCraft("steel-plate", f.Name(), 5)...)
+
+	tasks.Add(
+		tas.Craft("oil-refinery", 1),
+		tas.Craft("chemical-plant", 1),
+		tas.Craft("pumpjack", 1),
+	)
+
+	tasks[len(tasks)-3].Prerequisites().Add(tasks[len(tasks)-4], techMap["oil-processing"])
+
+	bTasks := tas.Tasks{tas.Build("pumpjack", 0)}
+	bTasks[0].Prerequisites().Add(tasks[len(tasks)-1])
+	bTasks.Add(
+		tas.Build("chemical-plant", 0),
+		tas.Build("oil-refinery", 0),
+	)
+	for i := 1; i <= nPipes; i++ {
+		bTasks.Add(tas.Build("pipe", i))
+	}
+
+	tasks.Add(bTasks...)
 
 	return tasks
 }

@@ -9,17 +9,15 @@ import (
 )
 
 func main() {
-	var err error
-	if err = data.Init(
+
+	must(data.Init(
 		"./data/data-raw-dump.json",
-	); err != nil {
-		panic(err)
-	}
+	))
 
 	t := tas.TAS{}
 
 	// this will take a while, might as well speed it up for us
-	t.Add(tas.Speed(100))
+	t.Add(tas.Speed(200))
 
 	t.Add(makeTechTasks()...)
 
@@ -29,31 +27,33 @@ func main() {
 	l := building.NewLab(data.GetLab("lab"))
 	b := building.NewBoiler(data.GetBoiler("boiler"))
 
-	if err = t.Add(researchTech("steel-processing", f, l, b)...); err != nil {
-		panic(err)
-	}
-
-	if err = t.Add(researchTech("logistic-science-pack", f, l, b)...); err != nil {
-		panic(err)
-	}
-
-	if err = t.Add(buildSolarPanel(f.Name())...); err != nil {
-		panic(err)
-	}
-
-	if err = t.Add(buildSteelFurnace(true)...); err != nil {
-		panic(err)
-	}
+	must(t.Add(researchTech("steel-processing", f, l, b)...))
+	must(t.Add(researchTech("logistic-science-pack", f, l, b)...))
+	must(t.Add(buildSolarPanel(f.Name())...))
+	must(t.Add(buildSteelFurnace(true)...))
 
 	b = nil
 	f = building.NewFurnace(data.GetFurnace("steel-furnace"))
 
+	must(t.Add(researchTech("automation-2", f, l, b)...))
+	must(t.Add(researchTech("engine", f, l, b)...))
+	must(t.Add(researchTech("fluid-handling", f, l, b)...))
+	must(t.Add(researchTech("oil-processing", f, l, b)...))
+
+	must(t.Add(buildOilSetup(f)...))
+
+	t.Add(tas.Speed(1))
+
 	of := os.Stdout
 
-	if err = t.Export(of); err != nil {
-		panic(err)
-	}
+	must(t.Export(of))
 
+}
+
+func must(e error) {
+	if e != nil {
+		panic(e)
+	}
 }
 
 // the technologies to research, in this specific order
@@ -65,10 +65,10 @@ var techs = []string{
 	"optics",
 	"solar-energy",                 // solar panel
 	"advanced-material-processing", // steel furnace
-	// "automation-2",
-	// "engine",
-	// "fluid-handling",
-	// "oil-processing", // refinery/chem plant
+	"automation-2",
+	"engine",
+	"fluid-handling",
+	"oil-processing", // refinery/chem plant
 	// "plastics",
 	// "advanced-electronics",
 	// "modules",

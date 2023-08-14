@@ -9,20 +9,20 @@ As of version `1.1.77`, there's a command line option to dump the raw data the g
 
 ## Map exchange string
 
-This map has a good clustering of the starting resources that's reasonably close to water. If you find a better map please let me know
+This map has a good clustering of the starting resources and has oil reasonably close to water. If you find a better map please let me know
 
 ```
->>>eNpjZGBk8GVgYgCCBnsQ5mBJzk/MgfAOOIAwV3J+QUFqkW5+U
-SqyMGdyUWlKqm5+Jqri1LzU3ErdpMRiqGKIyRyZRfl56CawFpfk5
-6GKlBSlphbDnALC3KVFiXmZpbkIvVCnMi59/z+ioUWOAYT/1zMo/
-P8PwkDWA6ACEGZgbICoBIrBAGtyTmZaGgODgiMQO4EVMTBWi6xzf
-1g1xZ4RokbPAcr4ABU5kAQT8YQx/BxwSqnAGCZI5hiDwWckBsTSE
-qAVUFUcDggGRLIFJMnI2Pt264Lvxy7YMf5Z+fGSb1KCPaOhq8i7D
-0br7ICS7CAvMMGJWTNBYCfMKwwwMx/YQ6Vu2jOePQMCb+wZWUE6R
-ECEgwWQOODNzMAowAdkLegBEgoyDDCn2cGMEXFgTAODbzCfPIYxL
-tuj+wMYEDYgw+VAxAkQAbYQ7jJGCNOh34HRQR4mK4lQAtRvxIDsh
-hSED0/CrD2MZD+aQzAjAtkfaCIqDliigQtkYQqceMEMdw0wPC+ww
-3gO8x0YmUEMkKovQDEIDyQDMwpCCziAg5uZAQGAaUP20+XvAL9/o
-5o=<<<
+>>>eNpjZGBkiABiIGiwB2EOluT8xBwGhgMOMMyVnF9QkFqkm1+Ui
+izMmVxUmpKqm5+Jqjg1LzW3UjcpsTgVYiLEZI7Movw8dBNYi0vy8
+1BFSopSU4uRNXKXFiXmZZbmQvQixBkYl77/H9HQIscAwv/rGRT+/
+wdhIOsBUAEIMzA2QFQCxaCASTY5P6+kKD9Htzi1pCQzL90qNz+zu
+KS0KNUqKTOxmMNAz9QABHRxKksrSi0sTc1LrrTKLc0pySzIyUwtA
+mozNAMCc9bknMy0NAYGBUcgdgI7gYGxWmSd+8OqKfaMECfoOUAZH
+6AiB5JgIp4whp8DTikVGMMEyRxjMPiMxIBYWgK0AqqKwwHBgEi2g
+CQZGXvfbl3w/dgFO8Y/Kz9e8k1KsGc0dBV598FonR1Qkh3kBSY4M
+WsmCOyEeYUBZuYDe6jUTXvGs2dA4I09IytIhwiIcLAAEge8mRkYB
+fiArAU9QEJBhgHmNDuYMSIOjGlg8A3mk8cwxmV7dH8AA8IGZLgci
+DgBIsAWwl3GCGE69DswOsjDZCURSoD6jRiQ3ZCC8OFJmLWHkexHc
+whmRCD7A01ExQFLNHCBLEyBEy+Y4a4BhucFdhjPYb4DIzOIAVL1B
+SgG4YFkYEZBaAEHcHDDZKFpI/PitU4AtZ/FiQ==<<<
 ```
-

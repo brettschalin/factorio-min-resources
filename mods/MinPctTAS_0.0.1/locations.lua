@@ -1,33 +1,97 @@
 math2d = require("math2d")
 
+local DIR = defines.direction
+
 -- where the machines are placed. Change this if you use a different map or don't like the layout
 local locations = {
-    lab = {x = -15.5, y = -20.5},
-    boiler = {x = -20, y = -25.5},
-    ["stone-furnace"] = {x = 11, y = 44},
-    ["steel-furnace"] = {x = 11, y = 44},
-    ["small-electric-pole"] = {x = -16.5, y = -22.5},
-    ["offshore-pump"] = {x = -20.5, y = -27.5},
-    ["steam-engine"] = {x = -16.5, y = -25.5},
-    ["solar-panel"] = {x = -14.5, y = -24.5}
+    lab = {x = 306.5, y = 172.5},
+    boiler = {x = 300, y = 175.5, dir = DIR.east},
+
+    ["stone-furnace"] = {x = 11, y = 45},
+    ["steel-furnace"] = {x = 11, y = 45},
+
+    ["electric-furnace"] = {x = 303.5, y = 175.5},
+    
+    ["small-electric-pole"] = {
+        {x = 303.5, y = 172.5},
+        {x = 303.5, y = 165.5}
+    },
+    ["offshore-pump"] = {x = 299.5, y = 177.5, dir = DIR.south},
+    ["steam-engine"] = {x = 303.5, y = 175.5, dir = DIR.east},
+    ["solar-panel"] = {x = 301.5, y = 171.5},
+    ["oil-refinery"] = {x = 300.5, y = 166.5, dir = DIR.north},
+    ["chemical-plant"] = {x = 306.5, y = 163.5, dir = DIR.west},
+    ["assembling-machine-2"] = {x = 306.5, y = 175.5}, -- overlaps with steam-engine
+    ["assembling-machine-3"] = {x = 306.5, y = 175.5},
+    ["pumpjack"] = {x = 304.5, y = 168.5, dir = DIR.west},
+    ["pipe"] = {
+        -- boiler to refinery
+        {x = 299.5, y = 173.5},
+        {x = 299.5, y = 172.5},
+        {x = 299.5, y = 171.5},
+        {x = 299.5, y = 170.5},
+        {x = 299.5, y = 169.5},
+
+        -- boiler to chem plant
+        {x = 300.5, y = 173.5},
+        {x = 301.5, y = 173.5},
+        {x = 302.5, y = 173.5},
+        {x = 303.5, y = 173.5},
+        {x = 304.5, y = 173.5},
+        {x = 304.5, y = 172.5},
+        {x = 304.5, y = 171.5},
+        {x = 304.5, y = 170.5},
+        {x = 305.5, y = 170.5},
+        {x = 306.5, y = 170.5},
+        {x = 306.5, y = 169.5},
+        {x = 306.5, y = 168.5},
+        {x = 306.5, y = 167.5},
+        {x = 306.5, y = 166.5},
+        {x = 306.5, y = 165.5},
+        {x = 305.5, y = 165.5},
+        {x = 304.5, y = 165.5},
+        {x = 304.5, y = 164.5},
+
+        -- pumpjack to refinery
+        {x = 302.5, y = 169.5},
+        {x = 301.5, y = 169.5},
+
+        -- chem plant to assembler
+        {x = 308.5, y = 163.5},
+        {x = 308.5, y = 164.5},
+        {x = 308.5, y = 165.5},
+        {x = 308.5, y = 166.5},
+        {x = 308.5, y = 167.5},
+        {x = 308.5, y = 168.5},
+        {x = 308.5, y = 169.5},
+        {x = 308.5, y = 170.5},
+        {x = 308.5, y = 171.5},
+        {x = 308.5, y = 172.5},
+        {x = 308.5, y = 173.5},
+        {x = 308.5, y = 174.5},
+        {x = 308.5, y = 175.5},
+
+        -- TODO: refinery outputs will need to be selectively routed
+        -- to the chem plant
+    },
+    -- TODO: will require mining something to make space near the power poles
+    -- ["rocket-silo"] = {}
 }
 
--- TODO:
--- * electric-furnace
--- * assembling-machine-2
--- * oil-refinery
--- * chemical-plant
--- * assembling-machine-3
--- * rocket-silo
--- * a second small-electric-pole (possibly not needed, will require thought of how to make it work)
-
+function locations.get(entity, n)
+    loc = locations[entity]
+    if loc.x then
+        return loc
+    end
+    return loc[n]    
+end
 
 -- the first locations we mine. Map-specific 
 local resources = {
-    coal = {x = 11.5, y = 45.5},
-    stone = {x = 28.5, y = 57.5},
-    ["iron-ore"] = {x = 12.5, y = 43.5},
-    ["copper-ore"] = {x = 9.5, y = 43.5},
+    coal = {x = 12.5, y = 46.5},
+    stone = {x = 28.5, y = 56.5},
+    ["iron-ore"] = {x = 11.5, y = 43.5},
+    ["copper-ore"] = {x = 8.5, y = 43.5},
 }
 
 
@@ -80,27 +144,50 @@ end
 -- Where the buildings are
 local buildings = {}
 
-function buildings.build(p, name, location)
+local function format_n(n)
+    if not n then
+        return ""
+    end
+    return string.format("%d", n)
+end
+
+function buildings.build(p, name, location, n)
     local loc = math2d.position.ensure_xy(location)
-    buildings[name] = {
+    local b = {
         name = name,
-        location = loc
+        location = loc,
+        n = n
     }
+    if not n then
+        buildings[name] = b
+    else
+        buildings[name][n] = b
+    end
+
     return buildings.get(p, name)
 end
 
-function buildings.is_placed(p, name)
-    building = buildings.get(p, name)
-
+function buildings.is_placed(p, name, n)
+    building = buildings.get(p, name, n)
     return building ~= nil and building.is_placed
 end
 
-function buildings.mine(p, name)
-    buildings[name] = nil
+function buildings.mine(p, name, n)
+    if not n then
+        buildings[name] = nil
+    else
+        buildings[name][n] = nil
+    end
 end
 
-function buildings.get(p, name)
-    local building = buildings[name]
+function buildings.get(p, name, n)
+
+    if not n then
+        building = buildings[name]
+    else
+        building = buildings[name][n]
+    end
+
     if not building or not building.location then
         return nil
     end

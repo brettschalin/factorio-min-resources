@@ -90,10 +90,7 @@ func TestVerifyState(t *testing.T) {
 					"automation": true,
 				},
 				Inventory: map[string]uint{
-					"copper-plate":            5,
-					"iron-plate":              0,
-					"iron-gear-wheel":         0,
-					"automation-science-pack": 0,
+					"copper-plate": 5,
 				},
 			},
 		}, {

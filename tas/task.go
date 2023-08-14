@@ -199,6 +199,7 @@ type taskMine struct {
 
 	// building
 	Entity string
+	N      int
 }
 
 func (t *taskMine) ID() string {
@@ -210,7 +211,11 @@ func (t *taskMine) Export() []byte {
 	if t.Resource != "" {
 		args = fmt.Sprintf(`resource = %q, amount = %d`, t.Resource, t.Amount)
 	} else {
-		args = fmt.Sprintf(`entity = %q`, t.Entity)
+		if t.N != 0 {
+			args = fmt.Sprintf(`entity = %q, n = %d`, t.Entity, t.N)
+		} else {
+			args = fmt.Sprintf(`entity = %q`, t.Entity)
+		}
 	}
 	return t.export(
 		t.ID(),
@@ -221,8 +226,8 @@ func (t *taskMine) Export() []byte {
 
 type taskBuild struct {
 	baseTask
-	Entity    string
-	Direction constants.Direction
+	Entity string
+	N      int
 }
 
 func (t *taskBuild) ID() string {
@@ -230,12 +235,12 @@ func (t *taskBuild) ID() string {
 }
 
 func (t *taskBuild) Export() []byte {
-	var args string
-	if t.Direction != constants.DirectionNone {
-		args = fmt.Sprintf(`entity = %q, direction = %s`, t.Entity, t.Direction)
-	} else {
-		args = fmt.Sprintf(`entity = %q`, t.Entity)
+	args := fmt.Sprintf(`entity = %q`, t.Entity)
+
+	if t.N != 0 {
+		args += fmt.Sprintf(`, n = %d`, t.N)
 	}
+
 	return t.export(
 		t.ID(),
 		args,
@@ -361,10 +366,10 @@ func (t *taskLaunch) Export() []byte {
 
 // Build constructs a building facing the given direction. Locations
 // are hardcoded in locations.lua
-func Build(entity string, direction constants.Direction) Task {
+func Build(entity string, n int) Task {
 	return &taskBuild{
-		Entity:    entity,
-		Direction: direction,
+		Entity: entity,
+		N:      n,
 	}
 }
 
@@ -383,9 +388,10 @@ func Launch() Task {
 
 // MineEntity mines a building. Locations are hardcoded
 // in locations.lua
-func MineEntity(entity string) Task {
+func MineEntity(entity string, n int) Task {
 	return &taskMine{
 		Entity: entity,
+		N:      n,
 	}
 }
 
@@ -500,7 +506,7 @@ func min[T ~int | ~uint](a, b T) T {
 
 // MineAndSmelt properly intersperses mining, waiting, and transferring
 // ores to work around stack size limitations. This does assume the furnace is properly fueled
-func MineAndSmelt(ore, plate, furnace string, amount uint) Tasks {
+func MineAndSmelt(ore, furnace string, amount uint) Tasks {
 	item := data.GetItem(ore)
 	batchSize := uint(item.StackSize)
 
@@ -510,7 +516,11 @@ func MineAndSmelt(ore, plate, furnace string, amount uint) Tasks {
 		MineResource(ore, amt),
 	}
 
+	rec := data.GetSmeltingRecipe(ore)
+	plate := rec.GetResults()[0]
+
 	for amount > 0 {
+
 		tasks.Add(
 			Transfer(furnace, ore, constants.InventoryFurnaceSource, amt, false),
 		)
@@ -521,9 +531,13 @@ func MineAndSmelt(ore, plate, furnace string, amount uint) Tasks {
 		if nextBatch > 0 {
 			tasks.Add(MineResource(ore, nextBatch))
 		}
+
+		// some recipes (eg, stone-brick) are not a 1 ore:1 plate ratio. Adjust as needed
+		takeAmt := uint(float64(amt) * (float64(plate.Amount) / float64(rec.Ingredients.Amount(ore))))
+
 		tasks.Add(
-			WaitInventory(furnace, plate, constants.InventoryFurnaceResult, amt, true),
-			Transfer(furnace, plate, constants.InventoryFurnaceResult, amt, true),
+			WaitInventory(furnace, plate.Name, constants.InventoryFurnaceResult, takeAmt, true),
+			Transfer(furnace, plate.Name, constants.InventoryFurnaceResult, takeAmt, true),
 		)
 
 		amt = nextBatch

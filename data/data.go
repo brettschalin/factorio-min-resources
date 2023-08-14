@@ -14,6 +14,10 @@ import (
 
 //go:generate ./gen_get.bash
 
+const (
+	recipeTypeSmelt = "smelting"
+)
+
 var (
 	d Data
 )
@@ -81,6 +85,25 @@ func (d *Data) GetRecipe(item string) *Recipe {
 				d.recipeCache[item] = rec
 				return rec
 			}
+		}
+	}
+	return nil
+}
+
+func GetSmeltingRecipe(ore string) *Recipe {
+	for _, r := range d.Recipe {
+		rec := r.Get()
+
+		if rec.Category != recipeTypeSmelt {
+			continue
+		}
+
+		if len(rec.Ingredients) > 1 {
+			continue
+		}
+
+		if rec.Ingredients.Amount(ore) > 0 {
+			return rec
 		}
 	}
 	return nil

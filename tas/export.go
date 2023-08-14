@@ -244,8 +244,8 @@ end
 -- that are map dependent as the placement of the wreckage is somewhat random; a future improvement
 -- will hopefully change that
 add_task("mine", nil, {location = {x = -5, y = -6}})
-add_task("mine", nil, {location = {x = -17.5, y = -3.5}})
-add_task("mine", nil, {location = {x = -18.8, y = -0.3}})
+add_task("mine", nil, {location = {x = -17.8, y = -3.5}})
+add_task("mine", nil, {location = {x = -18.8, y = 0.2}})
 add_task("mine", nil, {location = {x = -27.5, y = -3.8}})
 add_task("mine", nil, {location = {x = -28, y = 1.9}})
 add_task("mine", nil, {location = {x = -37.8, y = 1.5}})
