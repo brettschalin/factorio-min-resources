@@ -4,7 +4,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"math"
 
+	"github.com/brettschalin/factorio-min-resources/building"
+	"github.com/brettschalin/factorio-min-resources/calc"
 	"github.com/brettschalin/factorio-min-resources/constants"
 	"github.com/brettschalin/factorio-min-resources/data"
 	"github.com/brettschalin/factorio-min-resources/geo"
@@ -14,6 +17,7 @@ import (
 
 type Task interface {
 	ID() string
+	Type() TaskType
 	Prerequisites() *Tasks
 	Export() []byte
 }
@@ -39,6 +43,9 @@ const (
 	TaskMine
 	TaskSpeed
 	TaskLaunch
+
+	// used internally for prerequisite definitions
+	taskPrereq
 )
 
 func (t TaskType) String() string {
@@ -93,6 +100,14 @@ func (t *baseTask) getID(typ TaskType) string {
 	return t.id
 }
 
+func (t *baseTask) ID() string {
+	return t.getID(t.Type())
+}
+
+func (t *baseTask) Type() TaskType {
+	return TaskUnknown
+}
+
 func (t *baseTask) Prerequisites() *Tasks {
 	return &t.prereqs
 }
@@ -135,7 +150,11 @@ type taskCraft struct {
 }
 
 func (t *taskCraft) ID() string {
-	return t.getID(TaskCraft)
+	return t.getID(t.Type())
+}
+
+func (t *taskCraft) Type() TaskType {
+	return TaskCraft
 }
 
 func (t *taskCraft) Export() []byte {
@@ -152,7 +171,11 @@ type taskWalk struct {
 }
 
 func (t *taskWalk) ID() string {
-	return t.getID(TaskWalk)
+	return t.getID(t.Type())
+}
+
+func (t *taskWalk) Type() TaskType {
+	return TaskWalk
 }
 
 func (t *taskWalk) Export() []byte {
@@ -178,7 +201,11 @@ type taskWait struct {
 }
 
 func (t *taskWait) ID() string {
-	return t.getID(TaskWait)
+	return t.getID(t.Type())
+}
+
+func (t *taskWait) Type() TaskType {
+	return TaskWait
 }
 
 func (t *taskWait) Export() []byte {
@@ -203,7 +230,11 @@ type taskMine struct {
 }
 
 func (t *taskMine) ID() string {
-	return t.getID(TaskMine)
+	return t.getID(t.Type())
+}
+
+func (t *taskMine) Type() TaskType {
+	return TaskMine
 }
 
 func (t *taskMine) Export() []byte {
@@ -231,7 +262,11 @@ type taskBuild struct {
 }
 
 func (t *taskBuild) ID() string {
-	return t.getID(TaskBuild)
+	return t.getID(t.Type())
+}
+
+func (t *taskBuild) Type() TaskType {
+	return TaskBuild
 }
 
 func (t *taskBuild) Export() []byte {
@@ -268,7 +303,11 @@ func (t *taskTake) Export() []byte {
 }
 
 func (t *taskTake) ID() string {
-	return t.getID(TaskTake)
+	return t.getID(t.Type())
+}
+
+func (t *taskTake) Type() TaskType {
+	return TaskTake
 }
 
 type taskPut struct {
@@ -281,7 +320,11 @@ type taskPut struct {
 }
 
 func (t *taskPut) ID() string {
-	return t.getID(TaskPut)
+	return t.getID(t.Type())
+}
+
+func (t *taskPut) Type() TaskType {
+	return TaskPut
 }
 
 func (t *taskPut) Export() []byte {
@@ -301,7 +344,11 @@ type taskRecipe struct {
 }
 
 func (t *taskRecipe) ID() string {
-	return t.getID(TaskRecipe)
+	return t.getID(t.Type())
+}
+
+func (t *taskRecipe) Type() TaskType {
+	return TaskRecipe
 }
 
 func (t *taskRecipe) Export() []byte {
@@ -318,7 +365,11 @@ type taskTech struct {
 }
 
 func (t *taskTech) ID() string {
-	return t.getID(TaskTech)
+	return t.getID(t.Type())
+}
+
+func (t *taskTech) Type() TaskType {
+	return TaskTech
 }
 
 func (t *taskTech) Export() []byte {
@@ -335,7 +386,11 @@ type taskSpeed struct {
 }
 
 func (t *taskSpeed) ID() string {
-	return t.getID(TaskSpeed)
+	return t.getID(t.Type())
+}
+
+func (t *taskSpeed) Type() TaskType {
+	return TaskSpeed
 }
 
 func (t *taskSpeed) Export() []byte {
@@ -351,7 +406,11 @@ type taskLaunch struct {
 }
 
 func (t *taskLaunch) ID() string {
-	return t.getID(TaskLaunch)
+	return t.getID(t.Type())
+}
+
+func (t *taskLaunch) Type() TaskType {
+	return TaskLaunch
 }
 
 func (t *taskLaunch) Export() []byte {
@@ -360,6 +419,30 @@ func (t *taskLaunch) Export() []byte {
 		``,
 		TaskLaunch,
 	)
+}
+
+// this is intentionally given TaskUnknown for its type. Do not use it as anything except a prerequisite
+// as it does hacky stuff to the IDs to make the prereqs work
+type taskPrereqWait struct {
+	baseTask
+	Entity string
+	Slot   constants.Inventory
+	Item   string
+	Amount uint
+	Exact  bool
+}
+
+func (t *taskPrereqWait) ID() string {
+	return fmt.Sprintf(`has_inventory(%q, %q, %d, %t, %s)`,
+		t.Entity, t.Item, t.Amount, t.Exact, t.Slot)
+}
+
+func (t *taskPrereqWait) Export() []byte {
+	return []byte(t.ID())
+}
+
+func (t *taskPrereqWait) Type() TaskType {
+	return taskPrereq
 }
 
 /**** FUNCTIONS ****/
@@ -445,6 +528,21 @@ func WaitInventory(entity, item string, slot constants.Inventory, amount uint, e
 		Slot:   slot,
 		Amount: amount,
 		Exact:  exact,
+	}
+}
+
+// PrereqWait is like WaitInventory but used for prerequisite definitions
+func PrereqWait(entity, item string, slot constants.Inventory, amount uint, exact ...bool) Task {
+	var e bool
+	if len(exact) > 0 {
+		e = exact[0]
+	}
+	return &taskPrereqWait{
+		Entity: entity,
+		Item:   item,
+		Slot:   slot,
+		Amount: amount,
+		Exact:  e,
 	}
 }
 
@@ -543,6 +641,38 @@ func MineAndSmelt(ore, furnace string, amount uint) Tasks {
 		amt = nextBatch
 	}
 
+	return tasks
+}
+
+// MineFuelAndSmelt does the same batching as MineAndSmelt but also handles fueling the furnace
+func MineFuelAndSmelt(ore, fuel string, furnace *building.Furnace, amount uint) Tasks {
+	tasks := Tasks{}
+
+	fuelItem := data.GetItem(fuel)
+
+	recipesPerBatch := calc.RecipesFromFuel(furnace, data.GetSmeltingRecipe(ore), fuelItem.StackSize, fuel)
+
+	amt := min(uint(recipesPerBatch), amount)
+
+	for {
+
+		if amt < uint(recipesPerBatch) {
+			// adjust how much we end up fueling/smelting and break the loop
+			nFuel := calc.FuelFromRecipes(furnace, data.GetSmeltingRecipe(ore), int(amt), fuel)
+
+			tasks.Add(FuelMachine(fuel, furnace.Name(), uint(math.Ceil(nFuel)))...)
+			tasks.Add(MineAndSmelt(ore, furnace.Name(), amt)...)
+
+			break
+		}
+
+		// fuel the machine and do some smelting
+		tasks.Add(FuelMachine(fuel, furnace.Name(), uint(fuelItem.StackSize))...)
+		tasks.Add(MineAndSmelt(ore, furnace.Name(), min(uint(recipesPerBatch), amount))...)
+
+		amount -= amt
+		amt = min(uint(recipesPerBatch), amount)
+	}
 	return tasks
 }
 

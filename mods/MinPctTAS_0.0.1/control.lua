@@ -305,12 +305,16 @@ local current_action = queues.pop("character_action")
 local current_tech = queues.pop("lab")
 local destination = {x = 0, y = 0} -- destination can't be nil, so make sure it has some value
 
-local function prereqs_done(task)
+local function prereqs_done(task, p)
 	if task == nil or task.prereqs == nil or #task.prereqs == 0 then
 		return true
 	end
 	for i, t in pairs(task.prereqs) do
-		if not queues.is_done(t) then return false end
+		if type(t) == "function" then
+			if not t(p) then return false end
+		else
+			if not queues.is_done(t) then return false end
+		end
 	end
 	return true
 end
@@ -359,13 +363,13 @@ script.on_event(defines.events.on_tick, function(event)
 
 	-- Handcrafting
 
-	if current_craft ~= nil and current_craft.started and prereqs_done(current_craft) and current_craft.done(p) then
+	if current_craft ~= nil and current_craft.started and current_craft.done(p) then
 		debug(p, string.format("(%d): %s done", event.tick, current_craft.id))
 		queues.mark_done(current_craft.id)
 		current_craft = queues.pop("character_craft")
 	end
 	
-	if current_craft ~= nil and (not current_craft.started) and prereqs_done(current_craft) then
+	if current_craft ~= nil and (not current_craft.started) and prereqs_done(current_craft, p) then
 		debug(p, string.format("(%d) starting craft: %d %s", event.tick, current_craft.args.amount, current_craft.args.item))
 		craft(p, current_craft.args.amount, current_craft.args.item)
 		current_craft.started = true
@@ -374,13 +378,13 @@ script.on_event(defines.events.on_tick, function(event)
 
 	-- Research
 
-	if current_tech ~= nil and prereqs_done(current_tech) and current_tech.done(p) then
+	if current_tech ~= nil and current_tech.done(p) then
 		debug(p, string.format("(%d): %s done", event.tick, current_tech.id))
 		queues.mark_done(current_tech.id)
 		current_tech = queues.pop("lab")
 	end
 	
-	if current_tech ~= nil and (not current_tech.started) and prereqs_done(current_tech) then
+	if current_tech ~= nil and (not current_tech.started) and prereqs_done(current_tech, p) then
 		debug(p, string.format("(%d) researching tech %s", event.tick, current_tech.args.tech))
 		tech(p, current_tech.args.tech)
 		current_tech.started = true
@@ -393,7 +397,7 @@ script.on_event(defines.events.on_tick, function(event)
 		return
 	end
 
-	if not prereqs_done(current_action) then
+	if not prereqs_done(current_action, p) then
 		return
 	end
 

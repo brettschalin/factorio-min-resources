@@ -91,6 +91,15 @@ func (d *Data) GetRecipe(item string) *Recipe {
 }
 
 func GetSmeltingRecipe(ore string) *Recipe {
+	cacheKey := "SMELT_" + ore
+	if d.recipeCache == nil {
+		d.recipeCache = make(map[string]*Recipe)
+	}
+
+	if r, ok := d.recipeCache[cacheKey]; ok {
+		return r
+	}
+
 	for _, r := range d.Recipe {
 		rec := r.Get()
 
@@ -103,6 +112,7 @@ func GetSmeltingRecipe(ore string) *Recipe {
 		}
 
 		if rec.Ingredients.Amount(ore) > 0 {
+			d.recipeCache[cacheKey] = rec
 			return rec
 		}
 	}

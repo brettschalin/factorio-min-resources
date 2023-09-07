@@ -5,6 +5,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/brettschalin/factorio-min-resources/constants"
 	"github.com/brettschalin/factorio-min-resources/data"
 )
 
@@ -263,7 +264,7 @@ func TestRecipeAllIngredients(t *testing.T) {
 					Amount: 2950,
 				},
 				{
-					Name:   "coal",
+					Name:   constants.PreferredFuel,
 					Amount: 140,
 				},
 				{

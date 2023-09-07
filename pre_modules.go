@@ -20,8 +20,8 @@ func makePowerSetup() tas.Tasks {
 
 	tasks := tas.Tasks{
 		tas.Build("stone-furnace", 0),
-		tas.MineResource("coal", 7),
-		tas.Transfer("stone-furnace", "coal", constants.InventoryFuel, 7, false),
+		tas.MineResource(constants.PreferredFuel, 7),
+		tas.Transfer("stone-furnace", constants.PreferredFuel, constants.InventoryFuel, 7, false),
 		tas.MineResource("iron-ore", 50),
 		tas.Transfer("stone-furnace", "iron-ore", constants.InventoryFurnaceSource, 50, false),
 		tas.MineResource("iron-ore", 18),
@@ -67,20 +67,20 @@ func makePowerSetup() tas.Tasks {
 	return tasks
 }
 
-// researchTech mines and crafts the science packs required to research the
-// given technology. Currently only works with red and green science.
+// researchRGTech mines and crafts the science packs required to research the
+// given technology. Only works with red and green science.
 // Also note that fuel values are rounded up, and the difference will likely need
 // to be subtracted from the next function called
-func researchTech(tech string, f *building.Furnace, l *building.Lab, b *building.Boiler) tas.Tasks {
+func researchRGTech(tech string, f *building.Furnace, l *building.Lab, b *building.Boiler) tas.Tasks {
 
 	tasks := tas.Tasks{}
 
 	if b != nil {
 		// we need to fuel the boiler
-		boilerCoal := uint(math.Ceil(calc.BoilerFuelCost(b, "coal", calc.TechEnergyCost(l, tech))))
+		boilerCoal := uint(math.Ceil(calc.BoilerFuelCost(b, constants.PreferredFuel, calc.TechEnergyCost(l, tech))))
 
 		tasks.Add(
-			tas.FuelMachine("coal", b.Name(), boilerCoal)...,
+			tas.FuelMachine(constants.PreferredFuel, b.Name(), boilerCoal)...,
 		)
 	}
 
@@ -95,20 +95,33 @@ func researchTech(tech string, f *building.Furnace, l *building.Lab, b *building
 	}
 
 	// get the fuel cost, and how much of each ore to smelt
-	var smeltCoal float64
+	fuelStackSize := data.GetItem(constants.PreferredFuel).StackSize
 	rec := data.GetRecipe("iron-plate")
-	smeltCoal += calc.FuelFromRecipes(f, rec, baseCost["iron-ore"], "coal")
+	smeltCoalI := calc.FuelFromRecipes(f, rec, baseCost["iron-ore"], constants.PreferredFuel)
+
+	tfi := tas.FuelMachine(constants.PreferredFuel, f.Name(), uint(math.Ceil(smeltCoalI)))
+	msi := tas.MineAndSmelt("iron-ore", f.Name(), uint(baseCost["iron-ore"]))
+
 	rec = data.GetRecipe("copper-plate")
-	smeltCoal += calc.FuelFromRecipes(f, rec, baseCost["copper-ore"], "coal")
+	smeltCoalC := calc.FuelFromRecipes(f, rec, baseCost["copper-ore"], constants.PreferredFuel)
 
-	tasks.Add(tas.FuelMachine("coal", f.Name(), uint(math.Ceil(smeltCoal)))...)
+	tfc := tas.FuelMachine(constants.PreferredFuel, f.Name(), uint(math.Ceil(smeltCoalC)))
+	msc := tas.MineAndSmelt("copper-ore", f.Name(), uint(baseCost["copper-ore"]))
 
-	// finding smelt products from ores is hard, hardcoding is easy. As a consequence this method only works
-	// with red and green science but those are the early/mid technologies anyways so it'll be fine
-	tasks.Add(tas.MineAndSmelt("iron-ore", f.Name(), uint(baseCost["iron-ore"]))...)
-	tasks.Add(tas.MineAndSmelt("copper-ore", f.Name(), uint(baseCost["copper-ore"]))...)
+	// Fixes stack size issues
+	if smeltCoalI > float64(fuelStackSize) || smeltCoalC > float64(fuelStackSize) {
+		tasks.Add(tfi...)
+		tasks.Add(msi...)
+		tasks.Add(tfc...)
+		tasks.Add(msc...)
+	} else {
+		tasks.Add(tas.FuelMachine(constants.PreferredFuel, f.Name(), uint(math.Ceil(smeltCoalI+smeltCoalC)))...)
+		tasks.Add(msi...)
+		tasks.Add(msc...)
+	}
 
-	// craft the science packs
+	// craft the science packs.
+	// TODO: this will wait until everything is mined before starting crafting which is slow
 	t := tas.Craft("automation-science-pack", uint(packs["automation-science-pack"]))
 	t.Prerequisites().Add(tasks[len(tasks)-1])
 	tasks.Add(t)
@@ -138,23 +151,26 @@ func buildSolarPanel(furnace string) tas.Tasks {
 
 	// mine and smelt 1975 iron. Done in batches because of fuel capacity limitations
 
-	tasks.Add(tas.FuelMachine("coal", furnace, 49)...)
+	tasks.Add(tas.FuelMachine(constants.PreferredFuel, furnace, 49)...)
 	tasks.Add(tas.MineAndSmelt("iron-ore", furnace, 690)...)
 
-	tasks.Add(tas.FuelMachine("coal", furnace, 49)...)
+	tasks.Add(tas.FuelMachine(constants.PreferredFuel, furnace, 49)...)
 	tasks.Add(tas.MineAndSmelt("iron-ore", furnace, 690)...)
 
-	tasks.Add(tas.FuelMachine("coal", furnace, 43)...)
+	tasks.Add(tas.FuelMachine(constants.PreferredFuel, furnace, 43)...)
 	tasks.Add(tas.MineAndSmelt("iron-ore", furnace, 595)...)
 
 	c := tas.Craft("iron-gear-wheel", 675)
-	c.Prerequisites().Add(tasks[len(tasks)-1])
+	c.Prerequisites().Add(tas.PrereqWait("player", "iron-plate", constants.InventoryCharacterMain, 1350))
 	tasks.Add(c)
+
 	c = tas.Craft("transport-belt", 125)
+	c.Prerequisites().Add(tas.PrereqWait("player", "iron-plate", constants.InventoryCharacterMain, 125))
+	c.Prerequisites().Add(tas.PrereqWait("player", "iron-gear-wheel", constants.InventoryCharacterMain, 125))
 	tasks.Add(c)
 
 	// mine and smelt 675 copper
-	tasks.Add(tas.FuelMachine("coal", furnace, 49)...)
+	tasks.Add(tas.FuelMachine(constants.PreferredFuel, furnace, 49)...)
 
 	smeltTasks := tas.MineAndSmelt("copper-ore", furnace, 675)
 
@@ -162,19 +178,20 @@ func buildSolarPanel(furnace string) tas.Tasks {
 
 	// once we get 300 copper, start crafting red science
 	c = tas.Craft("automation-science-pack", 300)
-	c.Prerequisites().Add(smeltTasks[24])
+	c.Prerequisites().Add(tas.PrereqWait("player", "copper-plate", constants.InventoryCharacterMain, 300))
 	tasks.Add(c)
 
 	c = tas.Craft("logistic-science-pack", 50)
-	c.Prerequisites().Add(smeltTasks[len(smeltTasks)-1])
+	c.Prerequisites().Add(tas.PrereqWait("player", "transport-belt", constants.InventoryCharacterMain, 250))
+	c.Prerequisites().Add(tas.PrereqWait("player", "copper-plate", constants.InventoryCharacterMain, 375))
 	tasks.Add(c)
 	tasks.Add(tas.Craft("logistic-science-pack", 200))
 
 	// Dumping the science packs all at once causes a rounding error that leaves solar-energy unresearched with
 	// a tiny fraction of a green pack remaining. Not sure why but this seems to fix it
 	tasks.Add(
-		tas.MineResource("coal", 36),
-		tas.Transfer("boiler", "coal", constants.InventoryFuel, 36, false),
+		tas.MineResource(constants.PreferredFuel, 36),
+		tas.Transfer("boiler", constants.PreferredFuel, constants.InventoryFuel, 36, false),
 
 		tas.WaitInventory("player", "automation-science-pack", constants.InventoryCharacterMain, 10, false),
 		tas.Transfer("lab", "automation-science-pack", constants.InventoryLabInput, 10, false),
@@ -196,10 +213,9 @@ func buildSolarPanel(furnace string) tas.Tasks {
 		tas.Transfer("lab", "automation-science-pack", constants.InventoryLabInput, 50, false),
 		tas.Transfer("lab", "logistic-science-pack", constants.InventoryLabInput, 50, false),
 
-		tas.MineResource("coal", 37),
-		//tas.Walk(geo.Point{-20, -15}),
-		tas.WaitInventory("boiler", "coal", constants.InventoryFuel, 0, true),
-		tas.Transfer("boiler", "coal", constants.InventoryFuel, 37, false),
+		tas.MineResource(constants.PreferredFuel, 37),
+		tas.WaitInventory("boiler", constants.PreferredFuel, constants.InventoryFuel, 0, true),
+		tas.Transfer("boiler", constants.PreferredFuel, constants.InventoryFuel, 37, false),
 
 		tas.WaitInventory("lab", "automation-science-pack", constants.InventoryLabInput, 0, true),
 		tas.Transfer("lab", "automation-science-pack", constants.InventoryLabInput, 50, false),
@@ -212,13 +228,12 @@ func buildSolarPanel(furnace string) tas.Tasks {
 		tas.WaitInventory("lab", "logistic-science-pack", constants.InventoryLabInput, 0, true),
 		tas.Transfer("lab", "logistic-science-pack", constants.InventoryLabInput, 150, false),
 
-		tas.MineResource("coal", 50),
-		//tas.Walk(geo.Point{-20, -15}),
-		tas.WaitInventory("boiler", "coal", constants.InventoryFuel, 0, true),
-		tas.Transfer("boiler", "coal", constants.InventoryFuel, 50, false),
+		tas.MineResource(constants.PreferredFuel, 50),
+		tas.WaitInventory("boiler", constants.PreferredFuel, constants.InventoryFuel, 0, true),
+		tas.Transfer("boiler", constants.PreferredFuel, constants.InventoryFuel, 50, false),
 	)
 
-	tasks.Add(tas.FuelMachine("coal", furnace, 6)...)
+	tasks.Add(tas.FuelMachine(constants.PreferredFuel, furnace, 6)...)
 	tasks.Add(tas.MineAndSmelt("iron-ore", furnace, 40)...)
 	tasks.Add(tas.MineAndSmelt("copper-ore", furnace, 28)...)
 	tasks.Add(
@@ -248,16 +263,16 @@ func buildSteelFurnace(hasSolar bool) tas.Tasks {
 
 	var c tas.Task
 
-	tasks.Add(tas.FuelMachine("coal", "stone-furnace", 41)...)
+	tasks.Add(tas.FuelMachine(constants.PreferredFuel, "stone-furnace", 41)...)
 
 	tasks.Add(tas.MineAndSmelt("iron-ore", "stone-furnace", 564)...)
 
 	c = tas.Craft("transport-belt", 38)
-	c.Prerequisites().Add(tasks[len(tasks)-1])
+	c.Prerequisites().Add(tas.PrereqWait("player", "iron-plate", constants.InventoryCharacterMain, 114))
 
 	tasks.Add(c)
 	tasks.Add(
-		tas.FuelMachine("coal", "stone-furnace", 13)...,
+		tas.FuelMachine(constants.PreferredFuel, "stone-furnace", 13)...,
 	)
 
 	// we have one extra copper-cable from the solar panel making, and that's enough to take this
@@ -269,29 +284,35 @@ func buildSteelFurnace(hasSolar bool) tas.Tasks {
 		tas.Transfer("lab", "logistic-science-pack", constants.InventoryLabInput, 75, false),
 	}
 	c = tas.Craft("automation-science-pack", 75)
-	c.Prerequisites().Add(tasks[len(tasks)-8])
+	c.Prerequisites().Add(tas.PrereqWait("player", "iron-plate", constants.InventoryCharacterMain, 150))
+	c.Prerequisites().Add(tas.PrereqWait("player", "copper-plate", constants.InventoryCharacterMain, 75))
 	t[0].Prerequisites().Add(c)
 	tasks.Add(c)
 
 	c = tas.Craft("inserter", 75)
-	c.Prerequisites().Add(tasks[len(tasks)-2])
+	c.Prerequisites().Add(tas.PrereqWait("player", "copper-plate", constants.InventoryCharacterMain, 112))
+
 	tasks.Add(c)
 
 	c = tas.Craft("logistic-science-pack", 75)
+	c.Prerequisites().Add(
+		tas.PrereqWait("player", "transport-belt", constants.InventoryCharacterMain, 75),
+		tas.PrereqWait("player", "inserter", constants.InventoryCharacterMain, 75),
+	)
 	t[1].Prerequisites().Add(c)
 	c.Prerequisites().Add(techMap["logistic-science-pack"])
 	tasks.Add(c)
 
 	if !hasSolar {
 		tasks.Add(
-			tas.FuelMachine("coal", "boiler", 34)...,
+			tas.FuelMachine(constants.PreferredFuel, "boiler", 34)...,
 		)
 	}
 
 	tasks.Add(t...)
 
 	tasks.Add(
-		tas.FuelMachine("coal", "stone-furnace", 5)...,
+		tas.FuelMachine(constants.PreferredFuel, "stone-furnace", 5)...,
 	)
 
 	tasks.Add(
@@ -323,7 +344,7 @@ func buildSteelFurnace(hasSolar bool) tas.Tasks {
 	)
 
 	c = tas.Build("steel-furnace", 0)
-	c.Prerequisites().Add(tasks[len(tasks)-2:]...)
+	c.Prerequisites().Add(tas.PrereqWait("player", "steel-furnace", constants.InventoryCharacterMain, 1))
 	tasks.Add(c)
 
 	return tasks
@@ -335,7 +356,7 @@ func buildOilSetup(f *building.Furnace) tas.Tasks {
 	// how many pipes to build in the map. See locations.lua for where they go
 	const nPipes = 38
 
-	tasks.Add(tas.FuelMachine("coal", f.Name(), 15)...)
+	tasks.Add(tas.FuelMachine(constants.PreferredFuel, f.Name(), 15)...)
 
 	tasks.Add(tas.MineAndSmelt("iron-ore", f.Name(), 220+nPipes)...)
 	tasks.Add(tas.MineAndSmelt("copper-ore", f.Name(), 30)...)
@@ -373,6 +394,75 @@ func buildOilSetup(f *building.Furnace) tas.Tasks {
 	}
 
 	tasks.Add(bTasks...)
+
+	return tasks
+}
+
+func researchModules(f *building.Furnace) tas.Tasks {
+	tasks := tas.Tasks{}
+
+	tasks.Add(tas.MineFuelAndSmelt("iron-ore", constants.PreferredFuel, f, 4125)...)
+	tasks.Add(tas.MineFuelAndSmelt("copper-ore", constants.PreferredFuel, f, 1375)...)
+
+	t := tas.Craft("iron-gear-wheel", 1375)
+	t.Prerequisites().Add(tas.PrereqWait("player", "iron-plate", constants.InventoryCharacterMain, 2750))
+	tasks.Add(t)
+
+	t = tas.Craft("transport-belt", 275)
+	t.Prerequisites().Add(
+		tas.PrereqWait("player", "iron-plate", constants.InventoryCharacterMain, 275),
+		tas.PrereqWait("player", "iron-gear-wheel", constants.InventoryCharacterMain, 275),
+	)
+	tasks.Add(t)
+
+	t = tas.Craft("automation-science-pack", 550)
+	t.Prerequisites().Add(
+		tas.PrereqWait("player", "iron-gear-wheel", constants.InventoryCharacterMain, 550),
+		tas.PrereqWait("player", "copper-plate", constants.InventoryCharacterMain, 550),
+	)
+	tasks.Add(t)
+
+	t = tas.Craft("copper-cable", 825)
+	t.Prerequisites().Add(tas.PrereqWait("player", "copper-plate", constants.InventoryCharacterMain, 825))
+	tasks.Add(t)
+
+	t = tas.Craft("electronic-circuit", 550)
+	t.Prerequisites().Add(
+		tas.PrereqWait("player", "iron-plate", constants.InventoryCharacterMain, 550),
+		tas.PrereqWait("player", "copper-cable", constants.InventoryCharacterMain, 1650),
+	)
+	tasks.Add(t)
+
+	t = tas.Craft("inserter", 550)
+	t.Prerequisites().Add(
+		tas.PrereqWait("player", "iron-plate", constants.InventoryCharacterMain, 550),
+		tas.PrereqWait("player", "iron-gear-wheel", constants.InventoryCharacterMain, 550),
+		tas.PrereqWait("player", "electronic-circuit", constants.InventoryCharacterMain, 550),
+	)
+	tasks.Add(t)
+
+	t = tas.Craft("logistic-science-pack", 550)
+	t.Prerequisites().Add(
+		tas.PrereqWait("player", "transport-belt", constants.InventoryCharacterMain, 550),
+		tas.PrereqWait("player", "inserter", constants.InventoryCharacterMain, 550),
+	)
+	tasks.Add(t)
+
+	// transfer a total of 550 of each pack into the labs, split up per tech
+	var t1, t2 tas.Task
+	for _, n := range []uint{200, 200, 100, 50} {
+		t1 = tas.Transfer("lab", "automation-science-pack", constants.InventoryLabInput, n, false)
+		t1.Prerequisites().Add(
+			tas.PrereqWait("player", "automation-science-pack", constants.InventoryCharacterMain, n),
+			tas.PrereqWait("lab", "automation-science-pack", constants.InventoryLabInput, 0, true),
+		)
+		t2 = tas.Transfer("lab", "logistic-science-pack", constants.InventoryLabInput, n, false)
+		t2.Prerequisites().Add(
+			tas.PrereqWait("player", "logistic-science-pack", constants.InventoryCharacterMain, n),
+			tas.PrereqWait("lab", "logistic-science-pack", constants.InventoryLabInput, 0, true),
+		)
+		tasks.Add(t1, t2)
+	}
 
 	return tasks
 }

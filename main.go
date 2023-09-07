@@ -27,22 +27,26 @@ func main() {
 	l := building.NewLab(data.GetLab("lab"))
 	b := building.NewBoiler(data.GetBoiler("boiler"))
 
-	must(t.Add(researchTech("steel-processing", f, l, b)...))
-	must(t.Add(researchTech("logistic-science-pack", f, l, b)...))
+	must(t.Add(researchRGTech("steel-processing", f, l, b)...))
+	must(t.Add(researchRGTech("logistic-science-pack", f, l, b)...))
 	must(t.Add(buildSolarPanel(f.Name())...))
 	must(t.Add(buildSteelFurnace(true)...))
 
 	b = nil
 	f = building.NewFurnace(data.GetFurnace("steel-furnace"))
 
-	must(t.Add(researchTech("automation-2", f, l, b)...))
-	must(t.Add(researchTech("engine", f, l, b)...))
-	must(t.Add(researchTech("fluid-handling", f, l, b)...))
-	must(t.Add(researchTech("oil-processing", f, l, b)...))
+	must(t.Add(researchRGTech("automation-2", f, l, b)...))
+	must(t.Add(researchRGTech("engine", f, l, b)...))
+	must(t.Add(researchRGTech("fluid-handling", f, l, b)...))
+	must(t.Add(researchRGTech("oil-processing", f, l, b)...))
 
 	must(t.Add(buildOilSetup(f)...))
 
-	t.Add(tas.Speed(1))
+	must(t.Add(researchModules(f)...))
+
+	s := tas.Speed(1)
+	s.Prerequisites().Add(techMap["productivity-module"])
+	t.Add(s)
 
 	of := os.Stdout
 
@@ -69,10 +73,10 @@ var techs = []string{
 	"engine",
 	"fluid-handling",
 	"oil-processing", // refinery/chem plant
-	// "plastics",
-	// "advanced-electronics",
-	// "modules",
-	// "productivity-module", // first modules!
+	"plastics",
+	"advanced-electronics",
+	"modules",
+	"productivity-module", // first modules!
 	// "sulfur-processing",
 	// "chemical-science-pack", // blue science packs
 	// "advanced-material-processing-2", // electric furnace

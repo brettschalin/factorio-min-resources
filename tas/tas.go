@@ -38,7 +38,7 @@ func (tas *TAS) verifyPrereqs() error {
 	visited := map[string]bool{}
 	for i, task := range tas.tasks {
 		for _, p := range *task.Prerequisites() {
-			if !visited[p.ID()] {
+			if !visited[p.ID()] && p.Type() != taskPrereq {
 				return fmt.Errorf(`task %d references unknown prerequisite %s`, i, p.ID())
 			}
 		}
