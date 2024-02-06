@@ -20,7 +20,7 @@ Most speedruns try to complete their goal in the fastest time. Others minimize s
 
 ### Does this work with mods?
 
-Yes. I'm using Factorio's own mechanisms to dump the data it uses, so there's no practical reason it shouldn't work with your mod(s) of choice, although I will disclaim that by warning that recipe cycles are not something I'm prepared to handle yet so things will get weird if you try to use a mod that has them
+Yes. I'm using Factorio's own mechanisms to dump the data it uses, so there's no practical reason it shouldn't work with your mod(s) of choice, although I will disclaim that by warning that recipe cycles are not something I'm prepared to handle yet so things will get weird if you try to use a mod that has them. Technically vanilla has them too but nuclear and coal liquefaction are both strictly optional so it doesn't matter for what I'm doing
 
 ### Does this work with another map?
 
@@ -37,7 +37,7 @@ The tasks are split into three queues:
 - `lab` for research
 - `character_action` for everything else, like mining or putting stuff in machines
 
-On each tick, the queues are checked in the order listed above (only one is started on any given tick). If all of the task's prerequisites are `done()`, the task is started and marked as such. If a task is already running, we check if it's `done()`, and if it is, the next task is pulled off the queue. Some of the `character_action`s also need locations, but for the purpose of easier script generation they are not hardcoded anywhere in the Go code; we only ever build one of any given building so its name is used by the mod and the "real" location is found at runtime via the logic in `locations.lua`.
+On each tick, the queues are checked in the order listed above (only one is started on any given tick). If all of the task's prerequisites are `done()`, the task is started and marked as such. If a task is already running, we check if it's `done()`, and if it is, the next task is pulled off the queue. Some of the `character_action`s also need locations, but for the purpose of easier script generation they are not hardcoded anywhere in the Go code; The building name and, for those we build more than one of, index are used and the "real" location is found at runtime via the logic in `locations.lua`.
 
 `tasks.lua` can be modified directly, but an easier option is to use the Go command I've also provided. That allows you to define goals more abstractly (and handles defining prerequisite actions in an automated manner). It works in a couple of phases
 
@@ -56,7 +56,7 @@ Aside from the obvious "character is being controlled by the script," I've also 
 
 ### Just how painful is this?
 
-Extremely. Mining drills and machines and extensive power setups are extra resources that don't need to be used, so everything is hand-mined (`steel-axe` is also not necessary and won't be researched), and every craft is either done by hand or in a machine that's powered by one solar panel. Just to give you an idea, the run in `main.go` builds a steel furnace and solar panel and takes over five hours of real-time to mine, smelt, craft, and research it all; that's a sixth of the required technologies and by far the cheapest so I won't be surprised if the full run ends in the hundreds of hours
+Extremely. Mining drills and machines and extensive power setups are extra resources that don't need to be used, so everything is hand-mined (`steel-axe` is also not necessary and won't be researched), and every craft is either done by hand or in a machine that's powered by one solar panel. Just to give you an idea, the run in `main.go` researches the `productivity-module` tech and takes over 21 hours of real-time to mine, smelt, craft, and research it all. The run from there will be mostly using underpowered machines (to take advantage of prod mod bonuses) so I won't be surprised if it ends up being hundreds of hours in total
 
 
 ## LICENSE

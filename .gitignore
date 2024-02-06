@@ -1,2 +1,4 @@
-./compile
+/fmr
 data/*.json
+mod-settings.dat
+*.zip

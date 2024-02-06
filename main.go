@@ -1,6 +1,7 @@
 package main
 
 import (
+	"io"
 	"os"
 
 	"github.com/brettschalin/factorio-min-resources/building"
@@ -13,6 +14,10 @@ func main() {
 	must(data.Init(
 		"./data/data-raw-dump.json",
 	))
+
+	out, close, err := getOutputFile()
+	must(err)
+	defer close()
 
 	t := tas.TAS{}
 
@@ -48,9 +53,7 @@ func main() {
 	s.Prerequisites().Add(techMap["productivity-module"])
 	t.Add(s)
 
-	of := os.Stdout
-
-	must(t.Export(of))
+	must(t.Export(out))
 
 }
 
@@ -58,6 +61,18 @@ func must(e error) {
 	if e != nil {
 		panic(e)
 	}
+}
+
+func getOutputFile() (file io.Writer, close func() error, err error) {
+	if len(os.Args) > 1 {
+		f, err := os.OpenFile(os.Args[1], os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0)
+		if err != nil {
+			return nil, nil, err
+		}
+		return f, f.Close, nil
+	}
+
+	return os.Stdout, func() error { return nil }, nil
 }
 
 // the technologies to research, in this specific order

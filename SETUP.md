@@ -1,11 +1,11 @@
 ## Requirements
 
-* A copy of Factorio version `1.1.77` or later - legal purchases are preferred for reasons I shouldn't need to explain
+* A copy of [Factorio](https://factorio.com) version `1.1.77` or later - legal purchases are preferred for reasons I shouldn't need to explain
 * The Go programming language - install from https://go.dev/dl/ or your package manager of choice (`1.18` or later is required)
 
 ## Get the data
 
-As of version `1.1.77`, there's a command line option to dump the raw data the game uses as JSON - The TAS code should in theory work for much earlier versions but the Go command needs the data dump and therefore need this version or higher. Run `$FACTORIO_INSTALL_PATH/bin/x64/factorio --data-dump` and it'll dump a rather large (~35-40MB) JSON file into the `script-output` directory. Copy it to [`data`](./data).
+As of version `1.1.77`, there's a command line option to dump the raw data the game uses as JSON - The TAS code should in theory work for much earlier versions but the Go command needs the data dump and therefore need this version or higher. Run `$FACTORIO_INSTALL_PATH/bin/x64/factorio --data-dump` and it'll dump a rather large (~35-40MB) JSON file into the `script-output` directory - note that it dumps the data after all mods have had a chance to affect them. Copy it to [`data`](./data).
 
 ## Map exchange string
 
