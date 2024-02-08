@@ -2,19 +2,12 @@ package tas
 
 import (
 	"fmt"
-	"os"
 	"testing"
 
 	"github.com/brettschalin/factorio-min-resources/constants"
-	"github.com/brettschalin/factorio-min-resources/data"
 	"github.com/brettschalin/factorio-min-resources/state"
 	"github.com/r3labs/diff/v3"
 )
-
-func TestMain(m *testing.M) {
-	data.Init("../data/data-raw-dump.json")
-	os.Exit(m.Run())
-}
 
 func TestVerifyPrereqs(t *testing.T) {
 

@@ -45,8 +45,15 @@ func (m *modules) remove(mod string) {
 
 type Building interface {
 	Name() string
-	Slots() slots
+	Slots() *slots
 	Modules() modules
+}
+
+type CraftingBuilding interface {
+	Building
+	EnergySource() data.EnergySource
+	EnergyUsage() float64
+	CraftingSpeed() float64
 }
 
 type Assembler struct {
@@ -64,11 +71,18 @@ func NewAssembler(spec *data.AssemblingMachine) *Assembler {
 		}
 	}
 
+	// vanilla contains no burner assemblers of any kind (only furnaces) but mods might so account for that here
+	var fuelSlot constants.Inventory
+	if spec.IsBurner() {
+		fuelSlot = constants.InventoryFuel
+	}
+
 	return &Assembler{
 		Entity: spec,
 		slots: slots{
 			Input:   constants.InventoryAssemblingMachineInput,
 			Output:  constants.InventoryAssemblingMachineOutput,
+			Fuel:    fuelSlot,
 			Modules: constants.InventoryAssemblingMachineModules,
 		},
 		modules: mods,
@@ -79,12 +93,24 @@ func (a *Assembler) Name() string {
 	return a.Entity.Name
 }
 
-func (a *Assembler) Slots() slots {
-	return a.slots
+func (a *Assembler) Slots() *slots {
+	return &a.slots
 }
 
 func (a *Assembler) Modules() modules {
 	return a.modules
+}
+
+func (a *Assembler) EnergySource() data.EnergySource {
+	return a.Entity.EnergySource
+}
+
+func (a *Assembler) EnergyUsage() float64 {
+	return float64(a.Entity.EnergyUsage)
+}
+
+func (a *Assembler) CraftingSpeed() float64 {
+	return a.Entity.CraftingSpeed
 }
 
 type Furnace struct {
@@ -117,12 +143,24 @@ func (f *Furnace) Name() string {
 	return f.Entity.Name
 }
 
-func (f *Furnace) Slots() slots {
-	return f.slots
+func (f *Furnace) Slots() *slots {
+	return &f.slots
 }
 
 func (f *Furnace) Modules() modules {
 	return f.modules
+}
+
+func (f *Furnace) EnergySource() data.EnergySource {
+	return f.Entity.EnergySource
+}
+
+func (f *Furnace) EnergyUsage() float64 {
+	return float64(f.Entity.EnergyUsage)
+}
+
+func (f *Furnace) CraftingSpeed() float64 {
+	return f.Entity.CraftingSpeed
 }
 
 type Boiler struct {
@@ -147,8 +185,8 @@ func (b *Boiler) Name() string {
 	return b.Entity.Name
 }
 
-func (b *Boiler) Slots() slots {
-	return b.slots
+func (b *Boiler) Slots() *slots {
+	return &b.slots
 }
 
 func (b *Boiler) Modules() modules {
@@ -184,8 +222,8 @@ func (l *Lab) Name() string {
 	return l.Entity.Name
 }
 
-func (l *Lab) Slots() slots {
-	return l.slots
+func (l *Lab) Slots() *slots {
+	return &l.slots
 }
 
 func (l *Lab) Modules() modules {

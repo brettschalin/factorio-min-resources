@@ -7,6 +7,7 @@ import (
 
 	"github.com/brettschalin/factorio-min-resources/constants"
 	"github.com/brettschalin/factorio-min-resources/data"
+	"github.com/brettschalin/factorio-min-resources/shims/maps"
 )
 
 func TestMain(m *testing.M) {
@@ -20,18 +21,6 @@ func TestMain(m *testing.M) {
 	}
 
 	os.Exit(m.Run())
-}
-
-func cmpMap(m1, m2 map[string]int) bool {
-	if len(m1) != len(m2) {
-		return false
-	}
-	for k, v := range m1 {
-		if m2[k] != v {
-			return false
-		}
-	}
-	return true
 }
 
 func cmpErr(e1, e2 error) bool {
@@ -116,10 +105,10 @@ func TestRecipeCost(t *testing.T) {
 
 	for _, test := range tests {
 		actualIng, actualProd := RecipeCost(test.item, test.amount)
-		if !cmpMap(actualIng, test.expectedIng) {
+		if !maps.Equal(actualIng, test.expectedIng) {
 			t.Errorf("wrong ingredients for test '%d %s': wanted %v but got %v", test.amount, test.item, test.expectedIng, actualIng)
 		}
-		if !cmpMap(actualProd, test.expectedProd) {
+		if !maps.Equal(actualProd, test.expectedProd) {
 			t.Errorf("wrong products for test '%d %s': wanted %v but got %v", test.amount, test.item, test.expectedProd, actualProd)
 		}
 	}
@@ -168,10 +157,10 @@ func TestRecipeFullCost(t *testing.T) {
 	}
 	for _, test := range tests {
 		actualIng, actualProd := RecipeFullCost(test.item, test.amount)
-		if !cmpMap(actualIng, test.expectedIng) {
+		if !maps.Equal(actualIng, test.expectedIng) {
 			t.Errorf("wrong ingredients for test '%d %s': wanted %v but got %v", test.amount, test.item, test.expectedIng, actualIng)
 		}
-		if !cmpMap(actualProd, test.expectedProd) {
+		if !maps.Equal(actualProd, test.expectedProd) {
 			t.Errorf("wrong products for test '%d %s': wanted %v but got %v", test.amount, test.item, test.expectedProd, actualProd)
 		}
 	}
@@ -416,7 +405,7 @@ func TestTechCost(t *testing.T) {
 
 	for _, test := range tests {
 		actual := TechCost(test.tech)
-		if !cmpMap(actual, test.expected) {
+		if !maps.Equal(actual, test.expected) {
 			t.Errorf("wrong cost for tech %q: wanted %v but got %v", test.tech, actual, test.expected)
 		}
 	}
@@ -456,7 +445,7 @@ func TestTechFullCost(t *testing.T) {
 
 	for _, test := range tests {
 		actual := TechFullCost(test.researched, test.tech)
-		if !cmpMap(actual, test.expected) {
+		if !maps.Equal(actual, test.expected) {
 			t.Errorf("wrong cost for tech %q: wanted %v but got %v", test.tech, test.expected, actual)
 		}
 	}

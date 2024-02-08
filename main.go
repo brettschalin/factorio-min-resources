@@ -22,36 +22,64 @@ func main() {
 	t := tas.TAS{}
 
 	// this will take a while, might as well speed it up for us
-	t.Add(tas.Speed(200))
+	t.Add(tas.Speed(100))
 
 	t.Add(makeTechTasks()...)
 
-	t.Add(makePowerSetup()...)
+	furnace := building.NewFurnace(data.GetFurnace("stone-furnace"))
+	lab := building.NewLab(data.GetLab("lab"))
+	boiler := building.NewBoiler(data.GetBoiler("boiler"))
 
-	f := building.NewFurnace(data.GetFurnace("stone-furnace"))
-	l := building.NewLab(data.GetLab("lab"))
-	b := building.NewBoiler(data.GetBoiler("boiler"))
+	tasks, f := makePowerSetup(furnace)
+	must(t.Add(tasks...))
 
-	must(t.Add(researchRGTech("steel-processing", f, l, b)...))
-	must(t.Add(researchRGTech("logistic-science-pack", f, l, b)...))
-	must(t.Add(buildSolarPanel(f.Name())...))
-	must(t.Add(buildSteelFurnace(true)...))
+	tasks, f = researchRGTech("steel-processing", furnace, lab, boiler, f)
+	must(t.Add(tasks...))
 
-	b = nil
-	f = building.NewFurnace(data.GetFurnace("steel-furnace"))
+	tasks, f = researchRGTech("logistic-science-pack", furnace, lab, boiler, f)
+	must(t.Add(tasks...))
 
-	must(t.Add(researchRGTech("automation-2", f, l, b)...))
-	must(t.Add(researchRGTech("engine", f, l, b)...))
-	must(t.Add(researchRGTech("fluid-handling", f, l, b)...))
-	must(t.Add(researchRGTech("oil-processing", f, l, b)...))
+	tasks, f = researchRGTech("automation", furnace, lab, boiler, f)
+	must(t.Add(tasks...))
 
-	must(t.Add(buildOilSetup(f)...))
+	tasks, f = researchRGTech("electronics", furnace, lab, boiler, f)
+	must(t.Add(tasks...))
 
-	must(t.Add(researchModules(f)...))
+	tasks, f = researchRGTech("optics", furnace, lab, boiler, f)
+	must(t.Add(tasks...))
 
-	s := tas.Speed(1)
-	s.Prerequisites().Add(techMap["productivity-module"])
-	t.Add(s)
+	tasks, f = buildSolarPanel(furnace, lab, boiler, f)
+	must(t.Add(tasks...))
+	boiler = nil
+
+	tasks, f = buildSteelFurnace(furnace, lab, boiler, f)
+	must(t.Add(tasks...))
+
+	furnace = building.NewFurnace(data.GetFurnace("steel-furnace"))
+
+	tasks, f = researchRGTech("automation-2", furnace, lab, boiler, f)
+	must(t.Add(tasks...))
+
+	tasks, f = researchRGTech("engine", furnace, lab, boiler, f)
+	must(t.Add(tasks...))
+
+	tasks, f = researchRGTech("fluid-handling", furnace, lab, boiler, f)
+	must(t.Add(tasks...))
+
+	tasks, f = researchRGTech("oil-processing", furnace, lab, boiler, f)
+	must(t.Add(tasks...))
+
+	tasks, f = researchModules(furnace, lab, boiler, f)
+	must(t.Add(tasks...))
+
+	task := tas.Speed(1)
+	task.Prerequisites().Add(tasks[len(tasks)-1])
+	t.Add(task)
+
+	tasks, f = buildOilSetup(furnace, f)
+	must(t.Add(tasks...))
+
+	_ = f
 
 	must(t.Export(out))
 
@@ -65,7 +93,7 @@ func must(e error) {
 
 func getOutputFile() (file io.Writer, close func() error, err error) {
 	if len(os.Args) > 1 {
-		f, err := os.OpenFile(os.Args[1], os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0)
+		f, err := os.Create(os.Args[1])
 		if err != nil {
 			return nil, nil, err
 		}

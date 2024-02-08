@@ -11,6 +11,7 @@ import (
 	"github.com/brettschalin/factorio-min-resources/constants"
 	"github.com/brettschalin/factorio-min-resources/data"
 	"github.com/brettschalin/factorio-min-resources/geo"
+	"github.com/brettschalin/factorio-min-resources/shims"
 )
 
 /**** DEFINITIONS ****/
@@ -421,7 +422,7 @@ func (t *taskLaunch) Export() []byte {
 	)
 }
 
-// this is intentionally given TaskUnknown for its type. Do not use it as anything except a prerequisite
+// Do not use this as anything except a prerequisite
 // as it does hacky stuff to the IDs to make the prereqs work
 type taskPrereqWait struct {
 	baseTask
@@ -566,20 +567,30 @@ func Walk(location geo.Point) Task {
 	}
 }
 
-func MachineCraft(recipe, machine string, amount uint) Tasks {
-	tasks := Tasks{}
+// Craft inside a machine (assembler or furnace). Returns the tasks and how much fuel, if any, the machine used in the process
+func MachineCraft(recipe string, machine building.CraftingBuilding, amount uint, fuel string) (tasks Tasks, fuelUsed float64) {
 
-	// only assemblers can have set recipes
-	if m := data.GetAssemblingMachine(machine); m != nil {
-		tasks.Add(Recipe(machine, recipe))
+	switch m := machine.(type) {
+	case *building.Assembler:
+		// only assemblers can have set recipes
+		tasks.Add(Recipe(m.Name(), recipe))
+
+	case *building.Furnace:
+	default:
+		panic(fmt.Sprintf(`cannot handle building type %T`, m))
 	}
+	var (
+		mName   = machine.Name()
+		inSlot  = machine.Slots().Input
+		outSlot = machine.Slots().Output
+	)
 
 	rec := data.GetRecipe(recipe)
 	for _, i := range rec.Ingredients {
 		if i.IsFluid {
 			continue
 		}
-		tasks.Add(Transfer(machine, i.Name, constants.InventoryAssemblingMachineInput, amount*uint(i.Amount), false))
+		tasks.Add(Transfer(mName, i.Name, inSlot, amount*uint(i.Amount), false))
 	}
 
 	for _, p := range rec.GetResults() {
@@ -587,93 +598,113 @@ func MachineCraft(recipe, machine string, amount uint) Tasks {
 			continue
 		}
 		tasks.Add(
-			WaitInventory(machine, p.Name, constants.InventoryAssemblingMachineOutput, amount*uint(p.Amount), true),
-			Transfer(machine, p.Name, constants.InventoryAssemblingMachineOutput, amount*uint(p.Amount), true),
+			WaitInventory(mName, p.Name, outSlot, amount*uint(p.Amount), true),
+			Transfer(mName, p.Name, outSlot, amount*uint(p.Amount), true),
 		)
 	}
 
-	return tasks
-}
-
-func min[T ~int | ~uint](a, b T) T {
-	if a < b {
-		return a
-	}
-	return b
+	return tasks, calc.FuelFromRecipes(machine, rec, int(amount), fuel)
 }
 
 // MineAndSmelt properly intersperses mining, waiting, and transferring
-// ores to work around stack size limitations. This does assume the furnace is properly fueled
-func MineAndSmelt(ore, furnace string, amount uint) Tasks {
+// ores to work around stack size limitations. This does assume the machine is properly fueled
+func MineAndSmelt(ore string, machine building.CraftingBuilding, amount uint, fuel string) (tasks Tasks, fuelUsed float64) {
 	item := data.GetItem(ore)
 	batchSize := uint(item.StackSize)
 
-	amt := min(amount, batchSize)
+	amt := shims.Min(amount, batchSize)
 
-	tasks := Tasks{
-		MineResource(ore, amt),
+	// for steel, iron-plates are the "ore" but they are not minable. Assume they're already in the inventory
+	_, shouldMine := calc.MinableResources[ore]
+
+	if shouldMine {
+		tasks = Tasks{
+			MineResource(ore, amt),
+		}
 	}
 
-	rec := data.GetSmeltingRecipe(ore)
-	plate := rec.GetResults()[0]
+	var (
+		mName   = machine.Name()
+		inSlot  = machine.Slots().Input
+		outSlot = machine.Slots().Output
+
+		rec              = data.GetSmeltingRecipe(ore)
+		plate            = rec.GetResults()[0]
+		recipeMultiplier = (float64(plate.Amount) / float64(rec.Ingredients.Amount(ore)))
+	)
+	fuelUsed = calc.FuelFromRecipes(machine, rec, int(float64(amount)*recipeMultiplier), fuel)
 
 	for amount > 0 {
 
 		tasks.Add(
-			Transfer(furnace, ore, constants.InventoryFurnaceSource, amt, false),
+			Transfer(mName, ore, inSlot, amt, false),
 		)
 
 		// mine the next batch, but only if we need to
 		amount -= amt
-		nextBatch := min(amount, batchSize)
-		if nextBatch > 0 {
+		nextBatch := shims.Min(amount, batchSize)
+		if nextBatch > 0 && shouldMine {
 			tasks.Add(MineResource(ore, nextBatch))
 		}
 
 		// some recipes (eg, stone-brick) are not a 1 ore:1 plate ratio. Adjust as needed
-		takeAmt := uint(float64(amt) * (float64(plate.Amount) / float64(rec.Ingredients.Amount(ore))))
+		takeAmt := uint(float64(amt) * recipeMultiplier)
 
 		tasks.Add(
-			WaitInventory(furnace, plate.Name, constants.InventoryFurnaceResult, takeAmt, true),
-			Transfer(furnace, plate.Name, constants.InventoryFurnaceResult, takeAmt, true),
+			WaitInventory(mName, plate.Name, outSlot, takeAmt, true),
+			Transfer(mName, plate.Name, outSlot, takeAmt, true),
 		)
 
 		amt = nextBatch
 	}
 
-	return tasks
+	return tasks, fuelUsed
 }
 
-// MineFuelAndSmelt does the same batching as MineAndSmelt but also handles fueling the furnace
-func MineFuelAndSmelt(ore, fuel string, furnace *building.Furnace, amount uint) Tasks {
-	tasks := Tasks{}
+// MineFuelAndSmelt does the same batching as MineAndSmelt but also handles fueling the machine
+func MineFuelAndSmelt(ore, fuel string, machine building.CraftingBuilding, amount uint, extraFuel float64) (tasks Tasks, leftoverFuel float64) {
+	tasks = Tasks{}
 
 	fuelItem := data.GetItem(fuel)
+	mName := machine.Name()
 
-	recipesPerBatch := calc.RecipesFromFuel(furnace, data.GetSmeltingRecipe(ore), fuelItem.StackSize, fuel)
+	var (
+		rec              = data.GetSmeltingRecipe(ore)
+		plate            = rec.GetResults()[0]
+		recipeMultiplier = (float64(plate.Amount) / float64(rec.Ingredients.Amount(ore)))
+	)
+	recipesPerBatch := uint(calc.RecipesFromFuel(machine, rec, fuelItem.StackSize, fuel))
 
-	amt := min(uint(recipesPerBatch), amount)
+	amt := shims.Min(recipesPerBatch, amount)
 
 	for {
 
-		if amt < uint(recipesPerBatch) {
-			// adjust how much we end up fueling/smelting and break the loop
-			nFuel := calc.FuelFromRecipes(furnace, data.GetSmeltingRecipe(ore), int(amt), fuel)
+		if amt < recipesPerBatch {
 
-			tasks.Add(FuelMachine(fuel, furnace.Name(), uint(math.Ceil(nFuel)))...)
-			tasks.Add(MineAndSmelt(ore, furnace.Name(), amt)...)
+			nFuel := calc.FuelFromRecipes(machine, data.GetSmeltingRecipe(ore), int(float64(amt)*recipeMultiplier), fuel) - extraFuel
+			minedFuel := math.Ceil(nFuel)
+			extraFuel = minedFuel - nFuel
+
+			tasks.Add(FuelMachine(fuel, mName, uint(minedFuel))...)
+			t, _ := MineAndSmelt(ore, machine, amt, fuel)
+			tasks.Add(t...)
 
 			break
 		}
 
+		nFuel := calc.FuelFromRecipes(machine, data.GetSmeltingRecipe(ore), int(float64(amt)*recipeMultiplier), fuel) - extraFuel
+		minedFuel := math.Ceil(nFuel)
+		extraFuel = minedFuel - nFuel
+
 		// fuel the machine and do some smelting
-		tasks.Add(FuelMachine(fuel, furnace.Name(), uint(fuelItem.StackSize))...)
-		tasks.Add(MineAndSmelt(ore, furnace.Name(), min(uint(recipesPerBatch), amount))...)
+		tasks.Add(FuelMachine(fuel, mName, uint(minedFuel))...)
+		t, _ := MineAndSmelt(ore, machine, shims.Min(recipesPerBatch, amount), fuel)
+		tasks.Add(t...)
 
 		amount -= amt
-		amt = min(uint(recipesPerBatch), amount)
+		amt = shims.Min(recipesPerBatch, amount)
 	}
-	return tasks
+	return tasks, extraFuel
 }
 
 func FuelMachine(fuel, entity string, amount uint) Tasks {

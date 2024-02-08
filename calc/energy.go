@@ -29,10 +29,10 @@ func BoilerFuelCost(boiler *building.Boiler, fuel string, energy float64) float6
 }
 
 // RecipesFromFuel returns the number of recipes that can be crafted with the given amount of fuel
-func RecipesFromFuel(f *building.Furnace, recipe *data.Recipe, fuel int, fuelType string) int {
+func RecipesFromFuel(m building.CraftingBuilding, recipe *data.Recipe, fuel int, fuelType string) int {
 
 	// energy required for one smelt
-	energy := recipe.CraftingTime() * float64(f.Entity.EnergyUsage) / float64(f.Entity.CraftingSpeed)
+	energy := recipe.CraftingTime() * float64(m.EnergyUsage()) / float64(m.CraftingSpeed())
 
 	fItem := data.GetItem(fuelType)
 
@@ -41,19 +41,18 @@ func RecipesFromFuel(f *building.Furnace, recipe *data.Recipe, fuel int, fuelTyp
 	return int(ret)
 }
 
-// FuelFromRecipes returns the amount of fuel required to craft the given number of recipes.
-// This only accepts furnaces for now since that's what works for vanilla but shouldn't
-// be too difficult to extend to other crafting machines
-func FuelFromRecipes(f *building.Furnace, recipe *data.Recipe, count int, fuel string) float64 {
-	// electric furnaces don't have a fuel slot
-	if f.Entity.EnergySource.FuelCategory != constants.FuelCategoryChemical {
+// FuelFromRecipes returns the amount of fuel required to craft the given number of recipes. It returns 0
+// if the machine's energy source is not chemical
+func FuelFromRecipes(m building.CraftingBuilding, recipe *data.Recipe, count int, fuel string) float64 {
+
+	if m.EnergySource().FuelCategory != constants.FuelCategoryChemical {
 		return 0
 	}
 
 	e := float64(data.GetItem(fuel).FuelValue)
-	c := float64(f.Entity.EnergyUsage)
+	c := float64(m.EnergyUsage())
 
-	timeToCraft := recipe.CraftingTime() / f.Entity.CraftingSpeed
+	timeToCraft := recipe.CraftingTime() / m.CraftingSpeed()
 
 	energy := timeToCraft * float64(c)
 

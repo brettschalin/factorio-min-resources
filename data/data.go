@@ -159,8 +159,8 @@ type Boiler struct {
 
 type EnergySource struct {
 	// ignored if type == "electric"
-	Effectivity  int    `json:"effectivity"`
-	FuelCategory string `json:"fuel_category"`
+	Effectivity  int                    `json:"effectivity"`
+	FuelCategory constants.FuelCategory `json:"fuel_category"`
 
 	Type string `json:"type"`
 }
@@ -318,9 +318,11 @@ func (r *Recipe) ProductCount(item string) int {
 
 func (r *Recipe) Get() *Recipe {
 	if e := r.Expensive; constants.UseExpensive && e != nil {
+		e.Category = r.Category
 		return e
 	}
 	if n := r.Normal; n != nil {
+		n.Category = r.Category
 		return n
 	}
 	return r

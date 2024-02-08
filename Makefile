@@ -3,11 +3,13 @@
 FACTORIO_DIR := ${HOME}/factorio
 FACTORIO_BIN := ${FACTORIO_DIR}/bin/x64/factorio
 
+OUT_FILE := mods/MinPctTAS_0.0.1/tasks.lua
 
-gen: fmr
-	./fmr mods/MinPctTAS_0.0.1/tasks.lua
+${OUT_FILE}: fmr
+	./fmr ${OUT_FILE}
 
-fmr:
+targets := $(wildcard *.go) $(wildcard **/*.go)
+fmr: $(targets)
 	go build -o fmr .
 
 start_factorio:

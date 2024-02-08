@@ -8,7 +8,7 @@ Most speedruns try to complete their goal in the fastest time. Others minimize s
 * create a `tas.TAS` object
 * define various `tas.Task`s, `task.Prerequisites().Add()` if needed
 * `tas.Add(tasks)` and check for errors
-* `tas.Export(outFile)` to write the Lua code, save it to `mods/MinPctTAS_0.0.1/tasks.lua`
+* `tas.Export(outFile)` to write the Lua code, save it to `mods/MinPctTAS_0.0.1/tasks.lua` (alternatively, just run `make` from the directory containing this README)
 * `make start_factorio` and create a new map with the string in `SETUP.md`
 
 ## FAQ
@@ -28,7 +28,7 @@ Yes. There's nothing special about the seed I chose aside from it having a good 
 
 ### But how does it actually work?
 
-Short answer: it's mod and Go command that takes some abstract tasks and turns them into a TAS.
+Short answer: it's a mod and Go command that takes some abstract tasks and turns them into a TAS.
 
 Long answer: I've written a mod (based on https://mods.factorio.com/mod/AnyPctTAS but heavily modified to do what's described here) to take a series of tasks and perform them in order. Instead of the original mod hardcoding the order and which tick they're performed on, this allows you to set prerequisites that must be done before a task is started, so you can have something like "craft 10 iron-gear-wheels but not before you take 20 iron-plates from the furnace." The mod considers a TAS "done" when there's no more tasks left to perform, and it'll print out how many resources were used in the process.
 
@@ -56,7 +56,7 @@ Aside from the obvious "character is being controlled by the script," I've also 
 
 ### Just how painful is this?
 
-Extremely. Mining drills and machines and extensive power setups are extra resources that don't need to be used, so everything is hand-mined (`steel-axe` is also not necessary and won't be researched), and every craft is either done by hand or in a machine that's powered by one solar panel. Just to give you an idea, the run in `main.go` researches the `productivity-module` tech and takes over 21 hours of real-time to mine, smelt, craft, and research it all. The run from there will be mostly using underpowered machines (to take advantage of prod mod bonuses) so I won't be surprised if it ends up being hundreds of hours in total
+Extremely. Mining drills and machines and extensive power setups are extra resources that don't need to be used, so everything is hand-mined (`steel-axe` is also not necessary and won't be researched), and every craft is either done by hand or in a machine that's powered by one solar panel. Just to give you an idea, the run in `main.go` researches the `productivity-module` tech and builds a basic oil processing setup and takes nearly 17 hours of real-time to mine, smelt, craft, and research it all. The run from there will be mostly using underpowered machines (to take advantage of prod mod bonuses) so I won't be surprised if it ends up being hundreds of hours in total. Granted, there is definitely room for optimization but that takes effort and it's hard enough getting anything to work
 
 
 ## LICENSE

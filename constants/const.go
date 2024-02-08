@@ -1,9 +1,11 @@
 package constants
 
+type FuelCategory string
+
 const (
-	FuelCategoryChemical = "chemical"
-	FuelCategoryElectric = "electric"
-	FuelCategoryNuclear  = "nuclear"
+	FuelCategoryChemical FuelCategory = "chemical"
+	FuelCategoryElectric FuelCategory = "electric"
+	FuelCategoryNuclear  FuelCategory = "nuclear"
 )
 
 // StartingInventory is the inventory given when starting a new vanilla game
