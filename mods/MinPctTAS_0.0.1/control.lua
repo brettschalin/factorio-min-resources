@@ -81,7 +81,7 @@ end
 
 -- Mine the resource or building at this location
 local function mine(p, position)
-
+	
 	-- check if we can reach. I haven't tested this but whether this works with
 	-- multiple overlapping entities is unknown and likely random since it'd depend
 	-- on what order the game returns them in
@@ -263,29 +263,30 @@ end
 
 -- Walks the character in the direction of a coordinate
 local function walk(delta_x, delta_y)
-	if delta_x > 0.2 then
+	local tolerance = 0.2
+	if delta_x > tolerance then
 		-- Easterly
-		if delta_y > 0.2 then
+		if delta_y > tolerance then
 			return {walking = true, direction = defines.direction.southeast}
-		elseif delta_y < -0.2 then
+		elseif delta_y < -tolerance then
 			return {walking = true, direction = defines.direction.northeast}
 		else
 			return {walking = true, direction = defines.direction.east}
 		end
-	elseif delta_x < -0.2 then
+	elseif delta_x < -tolerance then
 		-- Westerly
-		if delta_y > 0.2 then
+		if delta_y > tolerance then
 			return {walking = true, direction = defines.direction.southwest}
-		elseif delta_y < -0.2 then
+		elseif delta_y < -tolerance then
 			return {walking = true, direction = defines.direction.northwest}
 		else
 			return {walking = true, direction = defines.direction.west}
 		end
 	else
 		-- Vertically
-		if delta_y > 0.2 then
+		if delta_y > tolerance then
 			return {walking = true, direction = defines.direction.south}
-		elseif delta_y < -0.2 then
+		elseif delta_y < -tolerance then
 			return {walking = true, direction = defines.direction.north}
 		else
 			return {walking = false, direction = defines.direction.north}
@@ -304,6 +305,7 @@ local current_craft = queues.pop("character_craft")
 local current_action = queues.pop("character_action")
 local current_tech = queues.pop("lab")
 local destination = {x = 0, y = 0} -- destination can't be nil, so make sure it has some value
+local resource = nil
 
 local function prereqs_done(task, p)
 	if task == nil or task.prereqs == nil or #task.prereqs == 0 then
@@ -357,6 +359,29 @@ script.on_event(defines.events.on_tick, function(event)
 			p.surface.always_day = true
 			debug(p, "increasing character inventory size")
 			p.character_inventory_slots_bonus = 420 --500 slots total
+
+			-- easier to see at a glance than a huge inventory window
+			p.set_quick_bar_slot(1, "stone")
+			p.set_quick_bar_slot(2, "stone-brick")
+			p.set_quick_bar_slot(11, "coal")
+			p.set_quick_bar_slot(12, "plastic-bar")
+			p.set_quick_bar_slot(21, "copper-ore")
+			p.set_quick_bar_slot(22, "copper-plate")
+			p.set_quick_bar_slot(23, "electronic-circuit")
+			p.set_quick_bar_slot(24, "advanced-circuit")
+			p.set_quick_bar_slot(25, "processing-unit")
+			p.set_quick_bar_slot(31, "iron-ore")
+			p.set_quick_bar_slot(32, "iron-plate")
+			p.set_quick_bar_slot(33, "steel-plate")
+			p.set_quick_bar_slot(34, "iron-gear-wheel")
+			p.set_quick_bar_slot(35, "pipe")
+			p.set_quick_bar_slot(6, "automation-science-pack")
+			p.set_quick_bar_slot(7, "logistic-science-pack")
+			p.set_quick_bar_slot(8, "chemical-science-pack")
+			p.set_quick_bar_slot(9, "production-science-pack")
+			p.set_quick_bar_slot(10, "utility-science-pack")
+
+
 			first_tick = false
 		end
 	end
@@ -442,13 +467,18 @@ script.on_event(defines.events.on_tick, function(event)
 	elseif task == "recipe" then
 		cr = recipe(p, args.location, args.recipe)
 	elseif task == "mine" then
+		if args.resource ~= nil and resource == nil then
+			resource = resources.find(p, args.resource)
+			destination = resource.position
+			args.location = resource.position
+		end
 		cr = mine(p, args.location)
 	elseif task == "put" then
 		cr = put(p, args.location, args.item, args.amount, args.inventory)
 	elseif task == "take" then
 		cr = take(p, args.location, args.item, args.amount, args.inventory)
-	-- elseif task == "launch" then
-	-- 	cr = launch(p, args.location)
+	elseif task == "launch" then
+		cr = launch(p, args.location)
 	elseif task == "speed" then
 		cr = speed(args.n)
 	end
@@ -475,13 +505,23 @@ script.on_event(defines.events.on_tick, function(event)
 end)
 
 
+-- Fixes an issue where the character would freeze in place when the
+-- resource they were mining was depleted. This will force the taskrunner
+-- to find the next closest resource tile and move to mine it
+script.on_event(defines.events.on_resource_depleted, function(event) 
+	if event.entity.name ~= "crude-oil" then
+		resource = nil
+		can_reach = false
+	end
+end)
+
 -- Populates the resources_used table that's dumped at the end of the TAS
 script.on_event(defines.events.on_player_mined_entity, function(event)
-	local resource = event.entity.name
-
+	local res = event.entity.name
+	
 	-- only update the resources listed in the table definition.
 	-- 0 is not a falsy value for some reason so this works. Thanks, Lua
-	if resources_used[resource] then
-		resources_used[resource] = resources_used[resource] + 1
+	if resources_used[res] then
+		resources_used[res] = resources_used[res] + 1
 	end
 end)
