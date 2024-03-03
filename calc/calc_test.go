@@ -1,11 +1,12 @@
 package calc
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"testing"
 
-	"github.com/brettschalin/factorio-min-resources/constants"
+	"github.com/brettschalin/factorio-min-resources/building"
 	"github.com/brettschalin/factorio-min-resources/data"
 	"github.com/brettschalin/factorio-min-resources/shims/maps"
 )
@@ -18,6 +19,19 @@ func TestMain(m *testing.M) {
 
 	if err != nil {
 		log.Fatalf("could not load data: %v", err)
+	}
+
+	assemblerNoModules = building.NewAssembler(data.GetAssemblingMachine("assembling-machine-1"))
+	assemblerModules = building.NewAssembler(data.GetAssemblingMachine("assembling-machine-2"))
+
+	prodmod1 = data.GetModule("productivity-module")
+	prodmod2 = data.GetModule("productivity-module-2")
+	prodmod3 = data.GetModule("productivity-module-3")
+
+	err = assemblerModules.SetModules(building.Modules{prodmod2, prodmod2})
+
+	if err != nil {
+		log.Fatalf("could not add modules to assembler: %v", err)
 	}
 
 	os.Exit(m.Run())
@@ -33,16 +47,22 @@ func cmpErr(e1, e2 error) bool {
 	return e1.Error() == e2.Error()
 }
 
+var (
+	assemblerNoModules, assemblerModules *building.Assembler
+	prodmod1, prodmod2, prodmod3         *data.Module
+)
+
 func TestRecipeCost(t *testing.T) {
 
 	var tests = []struct {
-		item         string
+		recipe       string
 		amount       int
+		building     building.CraftingBuilding
 		expectedIng  map[string]int
 		expectedProd map[string]int
 	}{
 		{
-			item:   "iron-plate",
+			recipe: "iron-plate",
 			amount: 1,
 			expectedIng: map[string]int{
 				"iron-ore": 1,
@@ -50,10 +70,11 @@ func TestRecipeCost(t *testing.T) {
 			expectedProd: map[string]int{
 				"iron-plate": 1,
 			},
+			building: assemblerNoModules,
 		},
 
 		{
-			item:   "iron-gear-wheel",
+			recipe: "iron-gear-wheel",
 			amount: 3,
 			expectedIng: map[string]int{
 				"iron-plate": 6,
@@ -61,10 +82,11 @@ func TestRecipeCost(t *testing.T) {
 			expectedProd: map[string]int{
 				"iron-gear-wheel": 3,
 			},
+			building: assemblerNoModules,
 		},
 
 		{
-			item:   "copper-cable",
+			recipe: "copper-cable",
 			amount: 1,
 			expectedIng: map[string]int{
 				"copper-plate": 1,
@@ -72,10 +94,11 @@ func TestRecipeCost(t *testing.T) {
 			expectedProd: map[string]int{
 				"copper-cable": 2,
 			},
+			building: assemblerNoModules,
 		},
 
 		{
-			item:   "rocket-control-unit",
+			recipe: "rocket-control-unit",
 			amount: 10,
 			expectedIng: map[string]int{
 				"speed-module":    10,
@@ -84,32 +107,47 @@ func TestRecipeCost(t *testing.T) {
 			expectedProd: map[string]int{
 				"rocket-control-unit": 10,
 			},
+			building: assemblerNoModules,
 		},
 		{
-			item:   "utility-science-pack",
+			recipe: "utility-science-pack",
 			amount: 12,
 			expectedIng: map[string]int{
-				"low-density-structure": 12,
-				"processing-unit":       8,
-				"flying-robot-frame":    4,
+				"low-density-structure": 36,
+				"processing-unit":       24,
+				"flying-robot-frame":    12,
 			},
 			expectedProd: map[string]int{
-				"utility-science-pack": 12,
+				"utility-science-pack": 36,
 			},
+			building: assemblerNoModules,
 		},
 		{
-			item:   "this-item-does-not-exist",
-			amount: 1,
+			recipe:   "this-item-does-not-exist",
+			amount:   1,
+			building: assemblerNoModules,
+		},
+		{
+			recipe: "logistic-science-pack",
+			amount: 50,
+			expectedIng: map[string]int{
+				"inserter":       45,
+				"transport-belt": 45,
+			},
+			expectedProd: map[string]int{
+				"logistic-science-pack": 50,
+			},
+			building: assemblerModules,
 		},
 	}
 
 	for _, test := range tests {
-		actualIng, actualProd := RecipeCost(test.item, test.amount)
+		actualIng, actualProd := RecipeCost(data.GetRecipe(test.recipe), test.amount, test.building)
 		if !maps.Equal(actualIng, test.expectedIng) {
-			t.Errorf("wrong ingredients for test '%d %s': wanted %v but got %v", test.amount, test.item, test.expectedIng, actualIng)
+			t.Errorf("wrong ingredients for test '%d %s': wanted %v but got %v", test.amount, test.recipe, test.expectedIng, actualIng)
 		}
 		if !maps.Equal(actualProd, test.expectedProd) {
-			t.Errorf("wrong products for test '%d %s': wanted %v but got %v", test.amount, test.item, test.expectedProd, actualProd)
+			t.Errorf("wrong products for test '%d %s': wanted %v but got %v", test.amount, test.recipe, test.expectedProd, actualProd)
 		}
 	}
 }
@@ -140,7 +178,6 @@ func TestRecipeFullCost(t *testing.T) {
 			},
 			expectedProd: map[string]int{
 				"electronic-circuit": 3,
-				"copper-cable":       1,
 			},
 		},
 		{
@@ -154,15 +191,31 @@ func TestRecipeFullCost(t *testing.T) {
 				"red-wire": 1,
 			},
 		},
+		{
+			item:   "rocket-control-unit",
+			amount: 20,
+			expectedIng: map[string]int{
+				"iron-ore":      782,
+				"copper-ore":    1450,
+				"coal":          140,
+				"water":         350,
+				"petroleum-gas": 2950,
+			},
+			expectedProd: map[string]int{
+				"rocket-control-unit": 20,
+			},
+		},
 	}
 	for _, test := range tests {
-		actualIng, actualProd := RecipeFullCost(test.item, test.amount)
-		if !maps.Equal(actualIng, test.expectedIng) {
-			t.Errorf("wrong ingredients for test '%d %s': wanted %v but got %v", test.amount, test.item, test.expectedIng, actualIng)
-		}
-		if !maps.Equal(actualProd, test.expectedProd) {
-			t.Errorf("wrong products for test '%d %s': wanted %v but got %v", test.amount, test.item, test.expectedProd, actualProd)
-		}
+		t.Run(fmt.Sprintf("%d %s", test.amount, test.item), func(tt *testing.T) {
+			actualIng, actualProd := RecipeFullCost(data.GetRecipe(test.item), test.amount, nil)
+			if !maps.Equal(actualIng, test.expectedIng) {
+				tt.Errorf("wrong ingredients for test '%d %s': wanted %v but got %v", test.amount, test.item, test.expectedIng, actualIng)
+			}
+			if !maps.Equal(actualProd, test.expectedProd) {
+				tt.Errorf("wrong products for test '%d %s': wanted %v but got %v", test.amount, test.item, test.expectedProd, actualProd)
+			}
+		})
 	}
 }
 
@@ -175,17 +228,73 @@ func TestRecipeAllIngredients(t *testing.T) {
 		expectedErr error
 	}{
 		{
-			item:   "logistic-science-pack",
-			amount: 20,
+			item:   "electronic-circuit",
+			amount: 3,
 			result: data.Ingredients{
 				{
+					Name:   "copper-ore",
+					Amount: 5,
+				},
+				{
+					Name:   "copper-plate",
+					Amount: 5,
+				},
+				{
 					Name:   "iron-ore",
-					Amount: 110,
+					Amount: 3,
+				},
+				{
+					Name:   "copper-cable",
+					Amount: 9,
 				},
 				{
 					Name:   "iron-plate",
-					Amount: 110,
+					Amount: 3,
 				},
+				{
+					Name:   "electronic-circuit",
+					Amount: 3,
+				},
+			},
+		},
+		{
+			item:   "red-wire",
+			amount: 1,
+			result: data.Ingredients{
+				{
+					Name:   "copper-ore",
+					Amount: 2,
+				},
+				{
+					Name:   "iron-ore",
+					Amount: 1,
+				},
+				{
+					Name:   "copper-plate",
+					Amount: 2,
+				},
+				{
+					Name:   "iron-plate",
+					Amount: 1,
+				},
+				{
+					Name:   "copper-cable",
+					Amount: 4,
+				},
+				{
+					Name:   "electronic-circuit",
+					Amount: 1,
+				},
+				{
+					Name:   "red-wire",
+					Amount: 1,
+				},
+			},
+		},
+		{
+			item:   "logistic-science-pack",
+			amount: 20,
+			result: data.Ingredients{
 				{
 					Name:   "copper-ore",
 					Amount: 30,
@@ -195,23 +304,31 @@ func TestRecipeAllIngredients(t *testing.T) {
 					Amount: 30,
 				},
 				{
+					Name:   "iron-ore",
+					Amount: 110,
+				},
+				{
 					Name:   "copper-cable",
 					Amount: 60,
 				},
 				{
-					Name:   "electronic-circuit",
-					Amount: 20,
+					Name:   "iron-plate",
+					Amount: 110,
 				},
 				{
 					Name:   "iron-gear-wheel",
 					Amount: 30,
 				},
 				{
-					Name:   "inserter",
+					Name:   "electronic-circuit",
 					Amount: 20,
 				},
 				{
 					Name:   "transport-belt",
+					Amount: 20,
+				},
+				{
+					Name:   "inserter",
 					Amount: 20,
 				},
 				{
@@ -225,63 +342,63 @@ func TestRecipeAllIngredients(t *testing.T) {
 			amount: 20,
 			result: data.Ingredients{
 				{
-					Name:   "iron-ore",
-					Amount: 782,
-				},
-				{
-					Name:   "iron-plate",
-					Amount: 782,
-				},
-				{
 					Name:   "copper-ore",
 					Amount: 1450,
+				},
+				{
+					Name:   "iron-ore",
+					Amount: 782,
 				},
 				{
 					Name:   "copper-plate",
 					Amount: 1450,
 				},
 				{
-					Name:   "copper-cable",
-					Amount: 2900,
-				},
-				{
-					Name:   "electronic-circuit",
-					Amount: 780,
+					Name:   "coal",
+					Amount: 140,
 				},
 				{
 					Name:   "petroleum-gas",
 					Amount: 2950,
 				},
 				{
-					Name:   constants.PreferredFuel,
-					Amount: 140,
-				},
-				{
-					Name:   "plastic-bar",
-					Amount: 280,
-				},
-				{
-					Name:   "advanced-circuit",
-					Amount: 140,
-				},
-				{
 					Name:   "water",
 					Amount: 350,
+				},
+				{
+					Name:   "iron-plate",
+					Amount: 782,
 				},
 				{
 					Name:   "sulfur",
 					Amount: 10,
 				},
 				{
+					Name:   "copper-cable",
+					Amount: 2900,
+				},
+				{
+					Name:   "plastic-bar",
+					Amount: 280,
+				},
+				{
+					Name:   "electronic-circuit",
+					Amount: 780,
+				},
+				{
 					Name:   "sulfuric-acid",
 					Amount: 100,
 				},
 				{
-					Name:   "processing-unit",
-					Amount: 20,
+					Name:   "advanced-circuit",
+					Amount: 140,
 				},
 				{
 					Name:   "speed-module",
+					Amount: 20,
+				},
+				{
+					Name:   "processing-unit",
 					Amount: 20,
 				},
 				{
@@ -293,7 +410,7 @@ func TestRecipeAllIngredients(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		actual, err := RecipeAllIngredients(test.item, test.amount)
+		actual, err := RecipeAllIngredients(data.GetRecipe(test.item), test.amount, nil)
 		if !cmpErr(test.expectedErr, err) {
 			t.Errorf("[%s] wrong error. Wanted %v but got %v", test.item, test.expectedErr, err)
 			continue
@@ -368,17 +485,19 @@ func TestHandcraft(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		inv, err := Handcraft(test.inventory, test.item, test.amount)
-		if !cmpErr(test.expectedErr, err) {
-			t.Errorf("wrong error. Wanted %v but got %v", test.expectedErr, err)
-			continue
-		}
-
-		for i, n := range inv {
-			if n != test.expectedInv[i] {
-				t.Errorf("wrong number for inventory %q. Wanted %d but got %d", i, test.expectedInv[i], n)
+		t.Run(fmt.Sprintf("%d %s", test.amount, test.item), func(tt *testing.T) {
+			inv, err := Handcraft(test.inventory, data.GetRecipe(test.item), test.amount)
+			if !cmpErr(test.expectedErr, err) {
+				tt.Fatalf("wrong error. Wanted %v but got %v", test.expectedErr, err)
 			}
-		}
+
+			for i, n := range inv {
+				if n != test.expectedInv[i] {
+					tt.Errorf("wrong number for inventory %q. Wanted %d but got %d", i, test.expectedInv[i], n)
+				}
+			}
+
+		})
 	}
 }
 

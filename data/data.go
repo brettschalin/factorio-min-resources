@@ -10,6 +10,7 @@ import (
 
 	"github.com/brettschalin/factorio-min-resources/constants"
 	"github.com/brettschalin/factorio-min-resources/geo"
+	"github.com/brettschalin/factorio-min-resources/shims/slices"
 )
 
 //go:generate ./gen_get.bash
@@ -258,11 +259,36 @@ type Minable struct {
 	Result     string  `json:"result"`
 }
 
+var (
+	modLimitCache = map[string]map[string]bool{}
+)
+
 type Module struct {
-	Category string       `json:"category"`
-	Effect   ModuleEffect `json:"effect"`
-	Name     string       `json:"name"`
-	Tier     int          `json:"tier"`
+	Category   string       `json:"category"`
+	Effect     ModuleEffect `json:"effect"`
+	Name       string       `json:"name"`
+	Tier       int          `json:"tier"`
+	Limitation []string     `json:"limitation"` // what recipes this can be used on
+}
+
+func (m *Module) ProductivityBonus() float64 {
+	return m.Effect.Productivity.Bonus
+}
+
+func (m *Module) AppliesTo(recipe string) bool {
+	b, ok := modLimitCache[m.Name]
+	if !ok {
+		b = map[string]bool{}
+		modLimitCache[m.Name] = b
+	}
+
+	if a, ok := b[recipe]; ok {
+		return a
+	}
+
+	a := slices.Contains(m.Limitation, recipe)
+	b[recipe] = a
+	return a
 }
 
 type ModuleEffect struct {
@@ -270,7 +296,6 @@ type ModuleEffect struct {
 	Pollution    ModuleEffectBonus `json:"pollution"`
 	Productivity ModuleEffectBonus `json:"productivity"`
 	Speed        ModuleEffectBonus `json:"speed"`
-	Limitation   []string          `json:"limitation"` // what recipes this can be used on
 }
 
 type ModuleEffectBonus struct {
@@ -319,10 +344,12 @@ func (r *Recipe) ProductCount(item string) int {
 func (r *Recipe) Get() *Recipe {
 	if e := r.Expensive; constants.UseExpensive && e != nil {
 		e.Category = r.Category
+		e.Name = r.Name
 		return e
 	}
 	if n := r.Normal; n != nil {
 		n.Category = r.Category
+		n.Name = r.Name
 		return n
 	}
 	return r
@@ -363,12 +390,7 @@ func (r *Recipe) CanHandcraft() bool {
 		return true
 	}
 
-	for _, category := range d.Character.CraftingCategories {
-		if r.Category == category {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(d.Character.CraftingCategories, r.Category)
 }
 
 type Ingredients []Ingredient

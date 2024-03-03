@@ -54,7 +54,7 @@ func (tas *TAS) verifyState(s *state.State) error {
 		switch t := task.(type) {
 		case *taskCraft:
 
-			newInv, err := calc.Handcraft(s.Inventory, t.Recipe, t.Amount)
+			newInv, err := calc.Handcraft(s.Inventory, data.GetRecipe(t.Recipe), t.Amount)
 			if err != nil {
 				return fmt.Errorf(`[craft] cannot handcraft %q: %v`, t.Recipe, err)
 			}

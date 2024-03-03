@@ -22,7 +22,11 @@ local locations = {
     ["oil-refinery"] = {x = 300.5, y = 166.5, dir = DIR.north},
     ["chemical-plant"] = {x = 306.5, y = 163.5, dir = DIR.west},
     ["assembling-machine-2"] = {x = 306.5, y = 175.5}, -- overlaps with steam-engine
+    
+    -- we won't have enough modules to run both at the same time so we'll need to switch off
     ["assembling-machine-3"] = {x = 306.5, y = 175.5},
+    ["electric-furnace"] = { x = 306.5, y = 175.5 },
+    
     ["pumpjack"] = {x = 304.5, y = 168.5, dir = DIR.west},
     ["pipe"] = {
         -- boiler to refinery
@@ -71,8 +75,12 @@ local locations = {
         {x = 308.5, y = 174.5},
         {x = 308.5, y = 175.5},
 
-        -- TODO: refinery outputs will need to be selectively routed
-        -- to the chem plant
+        -- refinery to chem plant
+        {x = 302.5, y = 163.5},
+        {x = 302.5, y = 162.5},
+        {x = 303.5, y = 162.5},
+        {x = 304.5, y = 162.5},
+
     },
     -- TODO: will require mining something to make space near the power poles
     -- ["rocket-silo"] = {}

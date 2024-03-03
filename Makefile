@@ -10,10 +10,14 @@ ${OUT_FILE}: fmr
 
 targets := $(wildcard *.go) $(wildcard **/*.go)
 fmr: $(targets)
+	go vet ./...
 	go build -o fmr .
 
 start_factorio:
 	${FACTORIO_BIN} --mod-directory ./mods
 
+test:
+	go test -v -covermode=count ./...
 
-.PHONY: start_factorio gen
+
+.PHONY: start_factorio test

@@ -52,6 +52,7 @@ On each tick, the queues are checked in the order listed above (only one is star
 Aside from the obvious "character is being controlled by the script," I've also made a couple other changes for convenience. They don't affect the quantity of resources required but they do make the run faster to code/execute.
 * night does not exist. This is because most of the run has machines powered by one solar panel
 * character inventory size is greatly increased. This is also not necessary, but not doing it would require that I implement logic to drop things on the ground and pick them up and that seems like more trouble that it's worth
+* character reach distance is increased. The compact build this run uses contains a "cage" of pipes that would be incredibly annoying to walk around all the time so we just don't
 
 
 ### Just how painful is this?

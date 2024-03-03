@@ -6,6 +6,7 @@ import (
 
 	"github.com/brettschalin/factorio-min-resources/building"
 	"github.com/brettschalin/factorio-min-resources/data"
+	"github.com/brettschalin/factorio-min-resources/state"
 	"github.com/brettschalin/factorio-min-resources/tas"
 )
 
@@ -26,60 +27,63 @@ func main() {
 
 	t.Add(makeTechTasks()...)
 
-	furnace := building.NewFurnace(data.GetFurnace("stone-furnace"))
-	lab := building.NewLab(data.GetLab("lab"))
-	boiler := building.NewBoiler(data.GetBoiler("boiler"))
+	var state = state.New()
+	state.Assembler = building.NewAssembler(data.GetAssemblingMachine("assembling-machine-2"))
+	state.Furnace = building.NewFurnace(data.GetFurnace("stone-furnace"))
+	state.Lab = building.NewLab(data.GetLab("lab"))
+	state.Boiler = building.NewBoiler(data.GetBoiler("boiler"))
+	state.Refinery = building.NewAssembler(data.GetAssemblingMachine("oil-refinery"))
+	state.Chem = building.NewAssembler(data.GetAssemblingMachine("chemical-plant"))
 
-	tasks, f := makePowerSetup(furnace)
+	tasks, f := makePowerSetup(state)
 	must(t.Add(tasks...))
 
-	tasks, f = researchRGTech("steel-processing", furnace, lab, boiler, f)
+	tasks, f = researchRGTech("steel-processing", state, f)
 	must(t.Add(tasks...))
 
-	tasks, f = researchRGTech("logistic-science-pack", furnace, lab, boiler, f)
+	tasks, f = researchRGTech("logistic-science-pack", state, f)
 	must(t.Add(tasks...))
 
-	tasks, f = researchRGTech("automation", furnace, lab, boiler, f)
+	tasks, f = researchRGTech("automation", state, f)
 	must(t.Add(tasks...))
 
-	tasks, f = researchRGTech("electronics", furnace, lab, boiler, f)
+	tasks, f = researchRGTech("electronics", state, f)
 	must(t.Add(tasks...))
 
-	tasks, f = researchRGTech("optics", furnace, lab, boiler, f)
+	tasks, f = researchRGTech("optics", state, f)
 	must(t.Add(tasks...))
 
-	tasks, f = buildSolarPanel(furnace, lab, boiler, f)
+	tasks, f = buildSolarPanel(state, f)
 	must(t.Add(tasks...))
-	boiler = nil
+	state.Boiler = nil
 
-	tasks, f = buildSteelFurnace(furnace, lab, boiler, f)
-	must(t.Add(tasks...))
-
-	furnace = building.NewFurnace(data.GetFurnace("steel-furnace"))
-
-	tasks, f = researchRGTech("automation-2", furnace, lab, boiler, f)
+	tasks, f = buildSteelFurnace(state, f)
 	must(t.Add(tasks...))
 
-	tasks, f = researchRGTech("engine", furnace, lab, boiler, f)
+	state.Furnace = building.NewFurnace(data.GetFurnace("steel-furnace"))
+
+	tasks, f = researchRGTech("automation-2", state, f)
 	must(t.Add(tasks...))
 
-	tasks, f = researchRGTech("fluid-handling", furnace, lab, boiler, f)
+	tasks, f = researchRGTech("engine", state, f)
 	must(t.Add(tasks...))
 
-	tasks, f = researchRGTech("oil-processing", furnace, lab, boiler, f)
+	tasks, f = researchRGTech("fluid-handling", state, f)
 	must(t.Add(tasks...))
 
-	tasks, f = researchModules(furnace, lab, boiler, f)
+	tasks, f = researchRGTech("oil-processing", state, f)
 	must(t.Add(tasks...))
 
-	task := tas.Speed(1)
-	task.Prerequisites().Add(tasks[len(tasks)-1])
-	t.Add(task)
-
-	tasks, f = buildOilSetup(furnace, f)
+	tasks, f = researchModules(state, f)
 	must(t.Add(tasks...))
 
-	_ = f
+	tasks, f = buildOilSetup(state, f)
+	must(t.Add(tasks...))
+
+	tasks, _ = prodmod1(state, f)
+	must(t.Add(tasks...))
+
+	t.Add(tas.Speed(1))
 
 	must(t.Export(out))
 

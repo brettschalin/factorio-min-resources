@@ -5,49 +5,49 @@ import (
 	"fmt"
 	"math"
 
+	"github.com/brettschalin/factorio-min-resources/building"
 	"github.com/brettschalin/factorio-min-resources/data"
+	"github.com/brettschalin/factorio-min-resources/shims"
+	"github.com/brettschalin/factorio-min-resources/shims/slices"
 )
 
-// RecipeCost returns the amount of ingredients required to craft at least `amount` many `item`s
+type Items[T shims.Ordered] map[string]T
+
+func (i Items[T]) Merge(other Items[T]) {
+	for k, v := range other {
+		i[k] += v
+	}
+}
+
+// RecipeCost returns the amount of ingredients required to craft the given recipe in the given machine
 // and the products created.
 // `nil` is returned if no recipe crafts the chosen items
-func RecipeCost(item string, amount int) (ingredients, products map[string]int) {
-	recipe := data.GetRecipe(item)
+func RecipeCost(recipe *data.Recipe, amount int, machine building.CraftingBuilding) (ingredients, products Items[int]) {
 
 	if recipe == nil {
 		return nil, nil
 	}
 
-	ingredients = make(map[string]int)
-	products = make(map[string]int)
+	ingredients = make(Items[int])
+	products = make(Items[int])
 
 	var (
-		mul int
-		a   = 1
+		bonus   = float64(1)
+		recipes int
 	)
-	if recipe.ResultCount != 0 {
-		a = recipe.ResultCount
-	}
-	if len(recipe.Results) > 0 {
-		a = recipe.Results.Amount(item)
+
+	if machine != nil {
+		bonus = 1 + machine.ProductivityBonus(recipe.Name)
 	}
 
-	// You cannot craft fractional recipes, so do some math to round up amount.
-	// For example: copper-cables are produced in pairs, so if you want 3 you must craft 4
-	mul = int(math.Ceil(float64(amount) / float64(a)))
+	recipes = int(math.Ceil(float64(amount) / bonus))
 
-	if recipe.Result != "" {
-		for _, i := range recipe.Ingredients {
-			ingredients[i.Name] = i.Amount * mul
-		}
-		products[recipe.Result] = a * mul
-	} else {
-		for _, i := range recipe.Ingredients {
-			ingredients[i.Name] = i.Amount * mul
-		}
-		for _, i := range recipe.Results {
-			products[i.Name] = i.Amount * mul
-		}
+	for _, i := range recipe.Ingredients {
+		ingredients[i.Name] = i.Amount * recipes
+	}
+
+	for _, p := range recipe.GetResults() {
+		products[p.Name] = p.Amount * amount
 	}
 
 	return
@@ -57,107 +57,173 @@ func RecipeCost(item string, amount int) (ingredients, products map[string]int) 
 // and the products created.
 // Like RecipeCost, this calculates prerequisites, but unlike it, this performs the same algorithm recursively
 // on the ingredients until `baseItems` are reached
-// `nil`` is returned if no recipe crafts the given item
-func RecipeFullCost(item string, amount int) (ingredients, products map[string]int) {
-	ingredients, products, leftovers := recipeFullCost(item, amount)
+// `nil“ is returned if no recipe crafts the given item
+func RecipeFullCost(recipe *data.Recipe, amount int, machine building.CraftingBuilding) (ingredients, products Items[int]) {
 
-	for name, n := range leftovers {
-		// find cost to craft at most `n` `name`s
-		// (ie, decrease provided `n` until the produced result is <= n
-		// subtract ingredients from `ingredients`
+	ingredients = make(Items[int])
+	products = make(Items[int])
 
-		for i := 0; i < n; i++ {
-			ing, prod, _ := recipeFullCost(name, n-i)
-			if prod[name] <= n {
-				for sName, sAmt := range ing {
-					ingredients[sName] -= sAmt
-				}
-				delete(leftovers, name)
-				break
-			}
+	ing, err := RecipeAllIngredients(recipe, amount, machine)
+
+	if err != nil {
+		return
+	}
+
+	for _, i := range ing {
+		if BaseItems[i.Name] {
+			ingredients[i.Name] += i.Amount
 		}
 	}
 
-	for name, n := range leftovers {
-		products[name] += n
+	for _, p := range recipe.GetResults() {
+		products[p.Name] += p.Amount * amount
 	}
 
 	return
 }
 
-func recipeFullCost(item string, amount int) (ingredients, products, leftovers map[string]int) {
-	ingredients = make(map[string]int)
-	products = make(map[string]int)
-	leftovers = make(map[string]int)
+type recipeDependency struct {
+	item    string
+	recipe  *data.Recipe
+	amount  int                 // items, not recipes
+	deps    []*recipeDependency // what this recipe requires
+	uses    []*recipeDependency // what requires this recipe
+	visited bool
+}
 
-	ing, prod := RecipeCost(item, amount)
-	leftover := prod[item] - amount
-
-	if leftover > 0 {
-		leftovers[item] = leftover
+func (r *recipeDependency) reset() {
+	r.visited = false
+	for _, d := range r.deps {
+		d.reset()
 	}
+}
 
-	if ing == nil {
-		return nil, nil, nil
-	}
+func (r *recipeDependency) iter(f func(*recipeDependency)) {
 
-	for i, a := range prod {
-		products[i] = a
-	}
+	q := []*recipeDependency{r}
 
-	for n, i := range ing {
-		if BaseItems[n] {
-			ingredients[n] = i
+	for len(q) > 0 {
+		rec := q[0]
+		q = q[1:]
+		if rec.visited {
 			continue
 		}
-		newIng, _, newLeftovers := recipeFullCost(n, i)
-		if newIng == nil {
-			return nil, nil, nil
+		ready := true
+		for _, u := range rec.uses {
+			if !u.visited {
+				ready = false
+				break
+			}
+		}
+		if !ready {
+			// we should be ready by the time the next loop comes around
+			q = append(q, rec)
+			continue
 		}
 
-		for name, amount := range newIng {
-			ingredients[name] += amount
+		f(rec)
+		for _, d := range rec.deps {
+			if !d.visited {
+				q = append(q, d)
+			}
+		}
+		rec.visited = true
+	}
+	r.reset()
+}
+
+func buildRecDeps(item string, amount int) *recipeDependency {
+	if item == "" {
+		return nil
+	}
+
+	root := &recipeDependency{
+		item:   item,
+		amount: amount,
+	}
+
+	if BaseItems[item] {
+		return root
+	}
+
+	recipe := data.GetRecipe(item)
+	root.recipe = recipe
+
+	deps := map[string]*recipeDependency{recipe.Name: root}
+
+	q := []*recipeDependency{root}
+	for len(q) > 0 {
+		r := q[0]
+		q = q[1:]
+		if r.visited || r.recipe == nil {
+			continue
+		}
+		r.visited = true
+
+		if BaseItems[r.item] {
+			continue
 		}
 
-		for name, amount := range newLeftovers {
-			leftovers[name] += amount
+		// build dependency graph
+		for _, i := range r.recipe.Ingredients {
+			rec, ok := deps[i.Name]
+			if !ok {
+				rec = &recipeDependency{
+					item: i.Name,
+				}
+
+				if !BaseItems[i.Name] {
+					rec.recipe = data.GetRecipe(i.Name)
+				}
+				deps[i.Name] = rec
+			}
+			rec.uses = append(rec.uses, r)
+			r.deps = append(r.deps, rec)
+			q = append(q, rec)
 		}
 	}
-	return
+
+	// set amounts of each item
+	root.reset()
+	root.iter(func(r *recipeDependency) {
+		if r.item == item {
+			return
+		}
+
+		amt := 0
+
+		for _, other := range r.uses {
+			i := other.recipe.Ingredients.Amount(r.item)
+			p := other.recipe.ProductCount(other.item)
+			amt += int(math.Ceil(float64(other.amount) * float64(i) / float64(p)))
+		}
+
+		r.amount = amt
+	})
+	return root
 }
 
 // RecipeAllIngredients returns the list of items that need to be created in order
 // to craft the final item.
-func RecipeAllIngredients(item string, amount int) (data.Ingredients, error) {
-	return recipeAllIngredients(item, amount, 0)
-}
-
-func recipeAllIngredients(item string, amount int, depth int) (data.Ingredients, error) {
-	rec := data.GetRecipe(item)
-	if rec == nil {
-		return nil, errors.New("no recipe crafts " + item)
+func RecipeAllIngredients(recipe *data.Recipe, amount int, machine building.CraftingBuilding) (data.Ingredients, error) {
+	if recipe == nil {
+		return nil, errors.New("no recipe to craft")
 	}
 
 	out := data.Ingredients{}
 
-	ingredients, _ := RecipeCost(item, amount)
+	deps := buildRecDeps(recipe.Name, amount*recipe.ProductCount(recipe.Name))
 
-	for _, ing := range rec.Ingredients {
-		amt := ingredients[ing.Name]
-		if !BaseItems[ing.Name] {
-			subIng, err := recipeAllIngredients(ing.Name, amt, depth+1)
-			if err != nil {
-				return nil, err
-			}
-			out = append(out, subIng...)
-		}
-		out = append(out, data.Ingredient{Name: ing.Name, Amount: amt})
-	}
+	// TODO: deps.iter() to apply module bonuses
 
-	if depth == 0 {
-		out = append(out, data.Ingredient{Name: item, Amount: amount})
-	}
-	out.MergeDuplicates()
+	deps.iter(func(r *recipeDependency) {
+		out = append(out, data.Ingredient{
+			Name:   r.item,
+			Amount: r.amount,
+		})
+	})
+
+	slices.Reverse(out)
 
 	return out, nil
 }
@@ -176,19 +242,16 @@ func (e *ErrMissingIngredient) Error() string {
 }
 
 // Handcraft performs a handcrafting action
-func Handcraft(inventory map[string]uint, item string, amount uint) (newInventory map[string]uint, err error) {
+func Handcraft(inventory Items[uint], recipe *data.Recipe, amount uint) (newInventory Items[uint], err error) {
 
-	rec := data.GetRecipe(item)
-	if rec == nil || !rec.CanHandcraft() {
+	if recipe == nil || !recipe.CanHandcraft() {
 		return nil, ErrCantHandcraft
 	}
 
-	newInventory = make(map[string]uint)
-	for k, v := range inventory {
-		newInventory[k] = v
-	}
+	newInventory = make(Items[uint])
+	newInventory.Merge(inventory)
 
-	ingredients, products := RecipeCost(item, int(amount))
+	ingredients, products := RecipeCost(recipe, int(math.Ceil(float64(amount)/float64(recipe.ProductCount(recipe.Name)))), nil)
 
 	for ing, n := range ingredients {
 		diff := n - int(newInventory[ing])
@@ -197,7 +260,7 @@ func Handcraft(inventory map[string]uint, item string, amount uint) (newInventor
 				return nil, &ErrMissingIngredient{ing, diff}
 			}
 			// not enough in inventory. Try to craft it
-			newInventory, err = Handcraft(newInventory, ing, uint(diff))
+			newInventory, err = Handcraft(newInventory, data.GetRecipe(ing), uint(diff))
 			if err != nil {
 				return nil, err
 			}

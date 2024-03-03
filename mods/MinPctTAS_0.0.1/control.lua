@@ -56,9 +56,9 @@ local function build(p, position, item, direction)
 		return false
 	end
 
-	-- check if we can reach the destination. Note that character_build_distance_bonus
-	-- affects this calculation in a way I haven't figured out but since vanilla doesn't use
-	-- it I don't see the need to do anything with it yet
+	-- check if we can reach the destination. character_build_distance_bonus does affect how far
+	-- we can reach but I'm not sure how it actually affects the math and it works well enough to
+	-- ignore it here so it is ignored
 	if math2d.position.distance(p.position, position) > p.build_distance then
 		return false
 	end
@@ -359,6 +359,11 @@ script.on_event(defines.events.on_tick, function(event)
 			p.surface.always_day = true
 			debug(p, "increasing character inventory size")
 			p.character_inventory_slots_bonus = 420 --500 slots total
+			debug(p, "increasing character reach distance")
+			p.character_build_distance_bonus = 10
+			p.character_resource_reach_distance_bonus = 10
+			p.character_reach_distance_bonus = 10
+
 
 			-- easier to see at a glance than a huge inventory window
 			p.set_quick_bar_slot(1, "stone")

@@ -685,7 +685,9 @@ func MineFuelAndSmelt(ore, fuel string, machine building.CraftingBuilding, amoun
 			minedFuel := math.Ceil(nFuel)
 			extraFuel = minedFuel - nFuel
 
-			tasks.Add(FuelMachine(fuel, mName, uint(minedFuel))...)
+			if minedFuel > 0 {
+				tasks.Add(FuelMachine(fuel, mName, uint(minedFuel))...)
+			}
 			t, _ := MineAndSmelt(ore, machine, amt, fuel)
 			tasks.Add(t...)
 
