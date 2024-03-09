@@ -9,6 +9,7 @@ import (
 	"github.com/brettschalin/factorio-min-resources/building"
 	"github.com/brettschalin/factorio-min-resources/data"
 	"github.com/brettschalin/factorio-min-resources/shims/maps"
+	"github.com/brettschalin/factorio-min-resources/state"
 )
 
 func TestMain(m *testing.M) {
@@ -23,6 +24,9 @@ func TestMain(m *testing.M) {
 
 	assemblerNoModules = building.NewAssembler(data.GetAssemblingMachine("assembling-machine-1"))
 	assemblerModules = building.NewAssembler(data.GetAssemblingMachine("assembling-machine-2"))
+	chemPlant = building.NewAssembler(data.GetAssemblingMachine("chemical-plant"))
+	refinery = building.NewAssembler(data.GetAssemblingMachine("oil-refinery"))
+	furnace = building.NewFurnace(data.GetFurnace("electric-furnace"))
 
 	prodmod1 = data.GetModule("productivity-module")
 	prodmod2 = data.GetModule("productivity-module-2")
@@ -32,6 +36,24 @@ func TestMain(m *testing.M) {
 
 	if err != nil {
 		log.Fatalf("could not add modules to assembler: %v", err)
+	}
+
+	err = chemPlant.SetModules(building.Modules{prodmod2, prodmod2, prodmod2})
+
+	if err != nil {
+		log.Fatalf("could not add modules to chem plant: %v", err)
+	}
+
+	err = refinery.SetModules(building.Modules{prodmod2, prodmod2, prodmod2})
+
+	if err != nil {
+		log.Fatalf("could not add modules to refinery: %v", err)
+	}
+
+	err = furnace.SetModules(building.Modules{prodmod2, prodmod2})
+
+	if err != nil {
+		log.Fatalf("could not add modules to furnace: %v", err)
 	}
 
 	os.Exit(m.Run())
@@ -49,6 +71,8 @@ func cmpErr(e1, e2 error) bool {
 
 var (
 	assemblerNoModules, assemblerModules *building.Assembler
+	chemPlant, refinery                  *building.Assembler
+	furnace                              *building.Furnace
 	prodmod1, prodmod2, prodmod3         *data.Module
 )
 
@@ -221,15 +245,23 @@ func TestRecipeFullCost(t *testing.T) {
 
 func TestRecipeAllIngredients(t *testing.T) {
 
+	testState := &state.State{
+		Assembler: assemblerModules,
+		Chem:      chemPlant,
+		Refinery:  refinery,
+		Furnace:   furnace,
+	}
+
 	var tests = []struct {
-		item        string
-		amount      int
+		name        string
+		input       map[*data.Recipe]int
 		result      data.Ingredients
 		expectedErr error
+		state       *state.State
 	}{
 		{
-			item:   "electronic-circuit",
-			amount: 3,
+			name:  "electronic-circuit",
+			input: map[*data.Recipe]int{data.GetRecipe("electronic-circuit"): 3},
 			result: data.Ingredients{
 				{
 					Name:   "copper-ore",
@@ -245,7 +277,7 @@ func TestRecipeAllIngredients(t *testing.T) {
 				},
 				{
 					Name:   "copper-cable",
-					Amount: 9,
+					Amount: 10,
 				},
 				{
 					Name:   "iron-plate",
@@ -258,8 +290,8 @@ func TestRecipeAllIngredients(t *testing.T) {
 			},
 		},
 		{
-			item:   "red-wire",
-			amount: 1,
+			name:  "red-wire",
+			input: map[*data.Recipe]int{data.GetRecipe("red-wire"): 1},
 			result: data.Ingredients{
 				{
 					Name:   "copper-ore",
@@ -292,8 +324,8 @@ func TestRecipeAllIngredients(t *testing.T) {
 			},
 		},
 		{
-			item:   "logistic-science-pack",
-			amount: 20,
+			name:  "logistic-science-pack",
+			input: map[*data.Recipe]int{data.GetRecipe("logistic-science-pack"): 20},
 			result: data.Ingredients{
 				{
 					Name:   "copper-ore",
@@ -338,8 +370,8 @@ func TestRecipeAllIngredients(t *testing.T) {
 			},
 		},
 		{
-			item:   "rocket-control-unit",
-			amount: 20,
+			name:  "rocket-control-unit",
+			input: map[*data.Recipe]int{data.GetRecipe("rocket-control-unit"): 20},
 			result: data.Ingredients{
 				{
 					Name:   "copper-ore",
@@ -407,23 +439,142 @@ func TestRecipeAllIngredients(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:  "advanced-circuit",
+			input: map[*data.Recipe]int{data.GetRecipe("advanced-circuit"): 100},
+			result: data.Ingredients{
+				{
+					Name:   "copper-ore",
+					Amount: 335,
+				},
+				{
+					Name:   "iron-ore",
+					Amount: 143,
+				},
+				{
+					Name:   "copper-plate",
+					Amount: 375,
+				},
+				{
+					Name:   "coal",
+					Amount: 77,
+				},
+				{
+					Name:   "petroleum-gas",
+					Amount: 1526,
+				},
+				{
+					Name:   "iron-plate",
+					Amount: 160,
+				},
+				{
+					Name:   "copper-cable",
+					Amount: 838,
+				},
+				{
+					Name:   "plastic-bar",
+					Amount: 180,
+				},
+				{
+					Name:   "electronic-circuit",
+					Amount: 179,
+				},
+				{
+					Name:   "advanced-circuit",
+					Amount: 100,
+				},
+			},
+			state: testState,
+		},
+		{
+			name:  "moduled rocket-control-unit",
+			input: map[*data.Recipe]int{data.GetRecipe("rocket-control-unit"): 20},
+			result: data.Ingredients{
+				{
+					Name:   "copper-ore",
+					Amount: 851,
+				},
+				{
+					Name:   "iron-ore",
+					Amount: 507,
+				},
+				{
+					Name:   "copper-plate",
+					Amount: 953,
+				},
+				{
+					Name:   "coal",
+					Amount: 94,
+				},
+				{
+					Name:   "petroleum-gas",
+					Amount: 2015,
+				},
+				{
+					Name:   "water",
+					Amount: 350,
+				},
+				{
+					Name:   "iron-plate",
+					Amount: 567,
+				},
+				{
+					Name:   "sulfur",
+					Amount: 10,
+				},
+				{
+					Name:   "copper-cable",
+					Amount: 2134,
+				},
+				{
+					Name:   "plastic-bar",
+					Amount: 220,
+				},
+				{
+					Name:   "electronic-circuit",
+					Amount: 632,
+				},
+				{
+					Name:   "sulfuric-acid",
+					Amount: 100,
+				},
+				{
+					Name:   "advanced-circuit",
+					Amount: 123,
+				},
+				{
+					Name:   "speed-module",
+					Amount: 18,
+				},
+				{
+					Name:   "processing-unit",
+					Amount: 18,
+				},
+				{
+					Name:   "rocket-control-unit",
+					Amount: 20,
+				},
+			},
+			state: testState,
+		},
 	}
 
 	for _, test := range tests {
-		actual, err := RecipeAllIngredients(data.GetRecipe(test.item), test.amount, nil)
+		actual, err := RecipeAllIngredients(test.input, test.state)
 		if !cmpErr(test.expectedErr, err) {
-			t.Errorf("[%s] wrong error. Wanted %v but got %v", test.item, test.expectedErr, err)
+			t.Errorf("[%s] wrong error. Wanted %v but got %v", test.name, test.expectedErr, err)
 			continue
 		}
 
 		if len(actual) != len(test.result) {
-			t.Fatalf("[%s] wrong amount of ingredients. Wanted %d but got %d", test.item, len(test.result), len(actual))
+			t.Errorf("[%s] wrong amount of ingredients. Wanted %d but got %d", test.name, len(test.result), len(actual))
+			continue
 		}
 
 		for i, ing := range actual {
 			if ing != test.result[i] {
 				t.Errorf("[%s] wrong amount/item for index %d. Wanted %d %s but got %d %s",
-					test.item, i, test.result[i].Amount, test.result[i].Name, ing.Amount, ing.Name)
+					test.name, i, test.result[i].Amount, test.result[i].Name, ing.Amount, ing.Name)
 			}
 		}
 	}

@@ -119,6 +119,9 @@ func (a *Assembler) ProductivityBonus(recipe string) float64 {
 	if a == nil {
 		return 0
 	}
+	if !a.Entity.CanCraft(data.GetRecipe(recipe)) {
+		return 0
+	}
 	return a.modules.ProductivityBonus(recipe)
 }
 
@@ -180,6 +183,9 @@ func (f *Furnace) CraftingSpeed() float64 {
 
 func (f *Furnace) ProductivityBonus(recipe string) float64 {
 	if f == nil {
+		return 0
+	}
+	if !f.Entity.CanCraft(data.GetRecipe(recipe)) {
 		return 0
 	}
 	return f.modules.ProductivityBonus(recipe)

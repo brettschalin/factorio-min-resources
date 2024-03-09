@@ -9,6 +9,7 @@ import (
 	"github.com/brettschalin/factorio-min-resources/data"
 	"github.com/brettschalin/factorio-min-resources/shims"
 	"github.com/brettschalin/factorio-min-resources/shims/slices"
+	"github.com/brettschalin/factorio-min-resources/state"
 )
 
 type Items[T shims.Ordered] map[string]T
@@ -58,12 +59,12 @@ func RecipeCost(recipe *data.Recipe, amount int, machine building.CraftingBuildi
 // Like RecipeCost, this calculates prerequisites, but unlike it, this performs the same algorithm recursively
 // on the ingredients until `baseItems` are reached
 // `nil“ is returned if no recipe crafts the given item
-func RecipeFullCost(recipe *data.Recipe, amount int, machine building.CraftingBuilding) (ingredients, products Items[int]) {
+func RecipeFullCost(recipe *data.Recipe, amount int, state *state.State) (ingredients, products Items[int]) {
 
 	ingredients = make(Items[int])
 	products = make(Items[int])
 
-	ing, err := RecipeAllIngredients(recipe, amount, machine)
+	ing, err := RecipeAllIngredients(map[*data.Recipe]int{recipe: amount}, state)
 
 	if err != nil {
 		return
@@ -83,12 +84,14 @@ func RecipeFullCost(recipe *data.Recipe, amount int, machine building.CraftingBu
 }
 
 type recipeDependency struct {
-	item    string
-	recipe  *data.Recipe
-	amount  int                 // items, not recipes
-	deps    []*recipeDependency // what this recipe requires
-	uses    []*recipeDependency // what requires this recipe
-	visited bool
+	item           string
+	recipe         *data.Recipe
+	amount         int                 // items, not recipes
+	originalAmount int                 // used in module calculations
+	deps           []*recipeDependency // what this recipe requires
+	uses           []*recipeDependency // what requires this recipe
+	visited        bool
+	meta           bool
 }
 
 func (r *recipeDependency) reset() {
@@ -132,24 +135,29 @@ func (r *recipeDependency) iter(f func(*recipeDependency)) {
 	r.reset()
 }
 
-func buildRecDeps(item string, amount int) *recipeDependency {
-	if item == "" {
+func buildRecDeps(items map[string]int) *recipeDependency {
+	if len(items) == 0 {
 		return nil
 	}
 
+	ings := make(data.Ingredients, 0, len(items))
+	for item, amount := range items {
+		ings = append(ings, data.Ingredient{
+			Name:   item,
+			Amount: amount,
+		})
+	}
+
 	root := &recipeDependency{
-		item:   item,
-		amount: amount,
+		amount: 1,
+		meta:   true,
+		recipe: &data.Recipe{
+			ResultCount: 1,
+			Ingredients: ings,
+		},
 	}
 
-	if BaseItems[item] {
-		return root
-	}
-
-	recipe := data.GetRecipe(item)
-	root.recipe = recipe
-
-	deps := map[string]*recipeDependency{recipe.Name: root}
+	deps := map[string]*recipeDependency{}
 
 	q := []*recipeDependency{root}
 	for len(q) > 0 {
@@ -186,7 +194,7 @@ func buildRecDeps(item string, amount int) *recipeDependency {
 	// set amounts of each item
 	root.reset()
 	root.iter(func(r *recipeDependency) {
-		if r.item == item {
+		if r.meta {
 			return
 		}
 
@@ -199,24 +207,94 @@ func buildRecDeps(item string, amount int) *recipeDependency {
 		}
 
 		r.amount = amt
+		r.originalAmount = amt
 	})
 	return root
 }
 
 // RecipeAllIngredients returns the list of items that need to be created in order
 // to craft the final item.
-func RecipeAllIngredients(recipe *data.Recipe, amount int, machine building.CraftingBuilding) (data.Ingredients, error) {
-	if recipe == nil {
+func RecipeAllIngredients(recipes map[*data.Recipe]int, state *state.State) (data.Ingredients, error) {
+	if len(recipes) == 0 {
 		return nil, errors.New("no recipe to craft")
 	}
 
 	out := data.Ingredients{}
 
-	deps := buildRecDeps(recipe.Name, amount*recipe.ProductCount(recipe.Name))
+	ings := make(map[string]int, len(recipes))
+	for r, n := range recipes {
+		ings[r.Name] = n * r.ProductCount(r.Name)
+	}
 
-	// TODO: deps.iter() to apply module bonuses
+	deps := buildRecDeps(ings)
+
+	// ingredients used in multiple recipes can be messed up by rounding issues. We fix this by keeping the amounts as floats
+	// until we actually need to use them
+	amounts := map[string]float64{}
 
 	deps.iter(func(r *recipeDependency) {
+
+		bonus := float64(1)
+		if state != nil && r.recipe != nil {
+			bonus += state.GetProductivityBonus(r.recipe)
+		}
+
+		// round up to nearest multiple of recipe
+		p := 1
+		if r.recipe != nil {
+			p = r.recipe.ProductCount(r.item)
+		}
+
+		amt := int(math.Ceil(amounts[r.item]))
+
+		extra := amt % p
+		if extra != 0 {
+			amt = amt + (p - extra)
+		}
+		if amt > 0 {
+			r.amount = amt
+		}
+		itemDiff := r.originalAmount - r.amount
+
+		// if we're not making enough to trigger any production bonuses, don't apply them to the ingredients
+		shouldSubIngredients := true
+
+		if bonus > 1 && r.recipe != nil {
+			recipeCount := math.Ceil(float64(r.amount) / float64(r.recipe.ProductCount(r.item)))
+			shouldSubIngredients = 1/(bonus-1) < recipeCount
+		}
+
+		for _, dep := range r.deps {
+
+			fAmt := amounts[dep.item]
+			if fAmt == 0 {
+				fAmt = float64(dep.originalAmount)
+				amounts[dep.item] = fAmt
+			}
+
+			if itemDiff > 0 {
+				amt := float64(itemDiff) * float64(r.recipe.Ingredients.Amount(dep.item)) / float64(r.recipe.ProductCount(r.item))
+
+				amounts[dep.item] -= amt
+			}
+
+			if !shouldSubIngredients {
+				continue
+			}
+
+			fAmt = float64(r.amount) * float64(r.recipe.Ingredients.Amount(dep.item)) / float64(r.recipe.ProductCount(r.item))
+			bon := float64(fAmt) / bonus
+			diff := float64(fAmt) - bon
+			amounts[dep.item] -= diff
+		}
+
+	})
+
+	// convert to ingredient list
+	deps.iter(func(r *recipeDependency) {
+		if r.meta {
+			return
+		}
 		out = append(out, data.Ingredient{
 			Name:   r.item,
 			Amount: r.amount,

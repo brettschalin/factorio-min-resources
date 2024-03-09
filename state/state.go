@@ -3,6 +3,7 @@ package state
 import (
 	"github.com/brettschalin/factorio-min-resources/building"
 	"github.com/brettschalin/factorio-min-resources/constants"
+	"github.com/brettschalin/factorio-min-resources/data"
 )
 
 type State struct {
@@ -90,4 +91,20 @@ func (s *State) Copy() *State {
 	}
 
 	return ret
+}
+
+func (s *State) GetProductivityBonus(recipe *data.Recipe) float64 {
+	if s.Furnace != nil && s.Furnace.Entity.CanCraft(recipe) {
+		return s.Furnace.ProductivityBonus(recipe.Name)
+	}
+	if s.Assembler != nil && s.Assembler.Entity.CanCraft(recipe) {
+		return s.Assembler.ProductivityBonus(recipe.Name)
+	}
+	if s.Chem != nil && s.Chem.Entity.CanCraft(recipe) {
+		return s.Chem.ProductivityBonus(recipe.Name)
+	}
+	if s.Refinery != nil && s.Refinery.Entity.CanCraft(recipe) {
+		return s.Refinery.ProductivityBonus(recipe.Name)
+	}
+	return 0
 }

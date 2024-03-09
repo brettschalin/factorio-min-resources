@@ -520,6 +520,9 @@ type TechCost struct {
 }
 
 func canCraft(r *Recipe, categories []string) bool {
+	if r == nil {
+		return false
+	}
 	for _, c := range categories {
 		if c == r.Category {
 			return true
@@ -529,7 +532,7 @@ func canCraft(r *Recipe, categories []string) bool {
 }
 
 func (a *AssemblingMachine) CanCraft(r *Recipe) bool {
-	return canCraft(r, a.CraftingCategories)
+	return canCraft(r, append(a.CraftingCategories, ""))
 }
 
 func (f *Furnace) CanCraft(r *Recipe) bool {
