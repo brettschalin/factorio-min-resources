@@ -264,6 +264,10 @@ func (l *Lab) SetModules(mod Modules) error {
 	return nil
 }
 
-func (l *Lab) ProductivityBonus(recipe string) float64 {
-	return l.modules.ProductivityBonus(recipe)
+func (l *Lab) ProductivityBonus() float64 {
+	var bonus float64
+	for _, m := range l.modules {
+		bonus += m.ProductivityBonus()
+	}
+	return bonus
 }

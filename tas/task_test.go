@@ -393,31 +393,191 @@ func TestMineFuelAndSmelt(t *testing.T) {
 				Transfer(stoneFurnace.Name(), "iron-plate", constants.InventoryFurnaceResult, 50, true),
 
 				Transfer(stoneFurnace.Name(), "iron-ore", constants.InventoryFurnaceSource, 50, false),
-				MineResource("iron-ore", 44),
+				MineResource("iron-ore", 50),
 				WaitInventory(stoneFurnace.Name(), "iron-plate", constants.InventoryFurnaceResult, 50, true),
 				Transfer(stoneFurnace.Name(), "iron-plate", constants.InventoryFurnaceResult, 50, true),
 
-				Transfer(stoneFurnace.Name(), "iron-ore", constants.InventoryFurnaceSource, 44, false),
-				WaitInventory(stoneFurnace.Name(), "iron-plate", constants.InventoryFurnaceResult, 44, true),
-				Transfer(stoneFurnace.Name(), "iron-plate", constants.InventoryFurnaceResult, 44, true),
+				Transfer(stoneFurnace.Name(), "iron-ore", constants.InventoryFurnaceSource, 50, false),
+				MineResource("iron-ore", 3),
+				WaitInventory(stoneFurnace.Name(), "iron-plate", constants.InventoryFurnaceResult, 50, true),
+				Transfer(stoneFurnace.Name(), "iron-plate", constants.InventoryFurnaceResult, 50, true),
+
+				Transfer(stoneFurnace.Name(), "iron-ore", constants.InventoryFurnaceSource, 3, false),
+				WaitInventory(stoneFurnace.Name(), "iron-plate", constants.InventoryFurnaceResult, 3, true),
+				Transfer(stoneFurnace.Name(), "iron-plate", constants.InventoryFurnaceResult, 3, true),
 
 				MineResource(constants.PreferredFuel, 7),
 				Transfer(stoneFurnace.Name(), constants.PreferredFuel, constants.InventoryFuel, 7, false),
 
 				MineResource("iron-ore", 50),
 				Transfer(stoneFurnace.Name(), "iron-ore", constants.InventoryFurnaceSource, 50, false),
-				MineResource("iron-ore", 50),
+				MineResource("iron-ore", 47),
 				WaitInventory(stoneFurnace.Name(), "iron-plate", constants.InventoryFurnaceResult, 50, true),
 				Transfer(stoneFurnace.Name(), "iron-plate", constants.InventoryFurnaceResult, 50, true),
 
-				Transfer(stoneFurnace.Name(), "iron-ore", constants.InventoryFurnaceSource, 50, false),
-				MineResource("iron-ore", 6),
-				WaitInventory(stoneFurnace.Name(), "iron-plate", constants.InventoryFurnaceResult, 50, true),
-				Transfer(stoneFurnace.Name(), "iron-plate", constants.InventoryFurnaceResult, 50, true),
+				Transfer(stoneFurnace.Name(), "iron-ore", constants.InventoryFurnaceSource, 47, false),
+				WaitInventory(stoneFurnace.Name(), "iron-plate", constants.InventoryFurnaceResult, 47, true),
+				Transfer(stoneFurnace.Name(), "iron-plate", constants.InventoryFurnaceResult, 47, true),
+			},
+		},
+		{
+			name:                 "smelt stone",
+			fuel:                 constants.PreferredFuel,
+			ore:                  "stone",
+			amount:               1400,
+			machine:              stoneFurnace,
+			expectedLeftoverFuel: addr(float64(0.6)),
+			expectedTasks: Tasks{
+				MineResource(constants.PreferredFuel, 50),
+				Transfer(stoneFurnace.Name(), constants.PreferredFuel, constants.InventoryFuel, 50, false),
 
-				Transfer(stoneFurnace.Name(), "iron-ore", constants.InventoryFurnaceSource, 6, false),
-				WaitInventory(stoneFurnace.Name(), "iron-plate", constants.InventoryFurnaceResult, 6, true),
-				Transfer(stoneFurnace.Name(), "iron-plate", constants.InventoryFurnaceResult, 6, true),
+				MineResource("stone", 50),
+				Transfer(stoneFurnace.Name(), "stone", constants.InventoryFurnaceSource, 50, false),
+				MineResource("stone", 50),
+				WaitInventory(stoneFurnace.Name(), "stone-brick", constants.InventoryFurnaceResult, 25, true),
+				Transfer(stoneFurnace.Name(), "stone-brick", constants.InventoryFurnaceResult, 25, true),
+
+				Transfer(stoneFurnace.Name(), "stone", constants.InventoryFurnaceSource, 50, false),
+				MineResource("stone", 50),
+				WaitInventory(stoneFurnace.Name(), "stone-brick", constants.InventoryFurnaceResult, 25, true),
+				Transfer(stoneFurnace.Name(), "stone-brick", constants.InventoryFurnaceResult, 25, true),
+
+				Transfer(stoneFurnace.Name(), "stone", constants.InventoryFurnaceSource, 50, false),
+				MineResource("stone", 50),
+				WaitInventory(stoneFurnace.Name(), "stone-brick", constants.InventoryFurnaceResult, 25, true),
+				Transfer(stoneFurnace.Name(), "stone-brick", constants.InventoryFurnaceResult, 25, true),
+
+				Transfer(stoneFurnace.Name(), "stone", constants.InventoryFurnaceSource, 50, false),
+				MineResource("stone", 50),
+				WaitInventory(stoneFurnace.Name(), "stone-brick", constants.InventoryFurnaceResult, 25, true),
+				Transfer(stoneFurnace.Name(), "stone-brick", constants.InventoryFurnaceResult, 25, true),
+
+				Transfer(stoneFurnace.Name(), "stone", constants.InventoryFurnaceSource, 50, false),
+				MineResource("stone", 50),
+				WaitInventory(stoneFurnace.Name(), "stone-brick", constants.InventoryFurnaceResult, 25, true),
+				Transfer(stoneFurnace.Name(), "stone-brick", constants.InventoryFurnaceResult, 25, true),
+
+				Transfer(stoneFurnace.Name(), "stone", constants.InventoryFurnaceSource, 50, false),
+				MineResource("stone", 50),
+				WaitInventory(stoneFurnace.Name(), "stone-brick", constants.InventoryFurnaceResult, 25, true),
+				Transfer(stoneFurnace.Name(), "stone-brick", constants.InventoryFurnaceResult, 25, true),
+
+				Transfer(stoneFurnace.Name(), "stone", constants.InventoryFurnaceSource, 50, false),
+				MineResource("stone", 50),
+				WaitInventory(stoneFurnace.Name(), "stone-brick", constants.InventoryFurnaceResult, 25, true),
+				Transfer(stoneFurnace.Name(), "stone-brick", constants.InventoryFurnaceResult, 25, true),
+
+				Transfer(stoneFurnace.Name(), "stone", constants.InventoryFurnaceSource, 50, false),
+				MineResource("stone", 50),
+				WaitInventory(stoneFurnace.Name(), "stone-brick", constants.InventoryFurnaceResult, 25, true),
+				Transfer(stoneFurnace.Name(), "stone-brick", constants.InventoryFurnaceResult, 25, true),
+
+				Transfer(stoneFurnace.Name(), "stone", constants.InventoryFurnaceSource, 50, false),
+				MineResource("stone", 50),
+				WaitInventory(stoneFurnace.Name(), "stone-brick", constants.InventoryFurnaceResult, 25, true),
+				Transfer(stoneFurnace.Name(), "stone-brick", constants.InventoryFurnaceResult, 25, true),
+
+				Transfer(stoneFurnace.Name(), "stone", constants.InventoryFurnaceSource, 50, false),
+				MineResource("stone", 50),
+				WaitInventory(stoneFurnace.Name(), "stone-brick", constants.InventoryFurnaceResult, 25, true),
+				Transfer(stoneFurnace.Name(), "stone-brick", constants.InventoryFurnaceResult, 25, true),
+
+				Transfer(stoneFurnace.Name(), "stone", constants.InventoryFurnaceSource, 50, false),
+				MineResource("stone", 50),
+				WaitInventory(stoneFurnace.Name(), "stone-brick", constants.InventoryFurnaceResult, 25, true),
+				Transfer(stoneFurnace.Name(), "stone-brick", constants.InventoryFurnaceResult, 25, true),
+
+				Transfer(stoneFurnace.Name(), "stone", constants.InventoryFurnaceSource, 50, false),
+				MineResource("stone", 50),
+				WaitInventory(stoneFurnace.Name(), "stone-brick", constants.InventoryFurnaceResult, 25, true),
+				Transfer(stoneFurnace.Name(), "stone-brick", constants.InventoryFurnaceResult, 25, true),
+
+				Transfer(stoneFurnace.Name(), "stone", constants.InventoryFurnaceSource, 50, false),
+				MineResource("stone", 50),
+				WaitInventory(stoneFurnace.Name(), "stone-brick", constants.InventoryFurnaceResult, 25, true),
+				Transfer(stoneFurnace.Name(), "stone-brick", constants.InventoryFurnaceResult, 25, true),
+
+				Transfer(stoneFurnace.Name(), "stone", constants.InventoryFurnaceSource, 50, false),
+				MineResource("stone", 50),
+				WaitInventory(stoneFurnace.Name(), "stone-brick", constants.InventoryFurnaceResult, 25, true),
+				Transfer(stoneFurnace.Name(), "stone-brick", constants.InventoryFurnaceResult, 25, true),
+
+				Transfer(stoneFurnace.Name(), "stone", constants.InventoryFurnaceSource, 50, false),
+				MineResource("stone", 50),
+				WaitInventory(stoneFurnace.Name(), "stone-brick", constants.InventoryFurnaceResult, 25, true),
+				Transfer(stoneFurnace.Name(), "stone-brick", constants.InventoryFurnaceResult, 25, true),
+
+				Transfer(stoneFurnace.Name(), "stone", constants.InventoryFurnaceSource, 50, false),
+				MineResource("stone", 50),
+				WaitInventory(stoneFurnace.Name(), "stone-brick", constants.InventoryFurnaceResult, 25, true),
+				Transfer(stoneFurnace.Name(), "stone-brick", constants.InventoryFurnaceResult, 25, true),
+
+				Transfer(stoneFurnace.Name(), "stone", constants.InventoryFurnaceSource, 50, false),
+				MineResource("stone", 50),
+				WaitInventory(stoneFurnace.Name(), "stone-brick", constants.InventoryFurnaceResult, 25, true),
+				Transfer(stoneFurnace.Name(), "stone-brick", constants.InventoryFurnaceResult, 25, true),
+
+				Transfer(stoneFurnace.Name(), "stone", constants.InventoryFurnaceSource, 50, false),
+				MineResource("stone", 50),
+				WaitInventory(stoneFurnace.Name(), "stone-brick", constants.InventoryFurnaceResult, 25, true),
+				Transfer(stoneFurnace.Name(), "stone-brick", constants.InventoryFurnaceResult, 25, true),
+
+				Transfer(stoneFurnace.Name(), "stone", constants.InventoryFurnaceSource, 50, false),
+				MineResource("stone", 50),
+				WaitInventory(stoneFurnace.Name(), "stone-brick", constants.InventoryFurnaceResult, 25, true),
+				Transfer(stoneFurnace.Name(), "stone-brick", constants.InventoryFurnaceResult, 25, true),
+
+				Transfer(stoneFurnace.Name(), "stone", constants.InventoryFurnaceSource, 50, false),
+				MineResource("stone", 50),
+				WaitInventory(stoneFurnace.Name(), "stone-brick", constants.InventoryFurnaceResult, 25, true),
+				Transfer(stoneFurnace.Name(), "stone-brick", constants.InventoryFurnaceResult, 25, true),
+
+				Transfer(stoneFurnace.Name(), "stone", constants.InventoryFurnaceSource, 50, false),
+				MineResource("stone", 50),
+				WaitInventory(stoneFurnace.Name(), "stone-brick", constants.InventoryFurnaceResult, 25, true),
+				Transfer(stoneFurnace.Name(), "stone-brick", constants.InventoryFurnaceResult, 25, true),
+
+				Transfer(stoneFurnace.Name(), "stone", constants.InventoryFurnaceSource, 50, false),
+				MineResource("stone", 50),
+				WaitInventory(stoneFurnace.Name(), "stone-brick", constants.InventoryFurnaceResult, 25, true),
+				Transfer(stoneFurnace.Name(), "stone-brick", constants.InventoryFurnaceResult, 25, true),
+
+				Transfer(stoneFurnace.Name(), "stone", constants.InventoryFurnaceSource, 50, false),
+				MineResource("stone", 50),
+				WaitInventory(stoneFurnace.Name(), "stone-brick", constants.InventoryFurnaceResult, 25, true),
+				Transfer(stoneFurnace.Name(), "stone-brick", constants.InventoryFurnaceResult, 25, true),
+
+				Transfer(stoneFurnace.Name(), "stone", constants.InventoryFurnaceSource, 50, false),
+				MineResource("stone", 50),
+				WaitInventory(stoneFurnace.Name(), "stone-brick", constants.InventoryFurnaceResult, 25, true),
+				Transfer(stoneFurnace.Name(), "stone-brick", constants.InventoryFurnaceResult, 25, true),
+
+				Transfer(stoneFurnace.Name(), "stone", constants.InventoryFurnaceSource, 50, false),
+				MineResource("stone", 50),
+				WaitInventory(stoneFurnace.Name(), "stone-brick", constants.InventoryFurnaceResult, 25, true),
+				Transfer(stoneFurnace.Name(), "stone-brick", constants.InventoryFurnaceResult, 25, true),
+
+				Transfer(stoneFurnace.Name(), "stone", constants.InventoryFurnaceSource, 50, false),
+				MineResource("stone", 50),
+				WaitInventory(stoneFurnace.Name(), "stone-brick", constants.InventoryFurnaceResult, 25, true),
+				Transfer(stoneFurnace.Name(), "stone-brick", constants.InventoryFurnaceResult, 25, true),
+
+				Transfer(stoneFurnace.Name(), "stone", constants.InventoryFurnaceSource, 50, false),
+				MineResource("stone", 38),
+				WaitInventory(stoneFurnace.Name(), "stone-brick", constants.InventoryFurnaceResult, 25, true),
+				Transfer(stoneFurnace.Name(), "stone-brick", constants.InventoryFurnaceResult, 25, true),
+
+				Transfer(stoneFurnace.Name(), "stone", constants.InventoryFurnaceSource, 38, false),
+				WaitInventory(stoneFurnace.Name(), "stone-brick", constants.InventoryFurnaceResult, 19, true),
+				Transfer(stoneFurnace.Name(), "stone-brick", constants.InventoryFurnaceResult, 19, true),
+
+				MineResource(constants.PreferredFuel, 1),
+				Transfer(stoneFurnace.Name(), constants.PreferredFuel, constants.InventoryFuel, 1, false),
+
+				MineResource("stone", 12),
+				Transfer(stoneFurnace.Name(), "stone", constants.InventoryFurnaceSource, 12, false),
+				WaitInventory(stoneFurnace.Name(), "stone-brick", constants.InventoryFurnaceResult, 6, true),
+				Transfer(stoneFurnace.Name(), "stone-brick", constants.InventoryFurnaceResult, 6, true),
 			},
 		},
 	} {
@@ -425,6 +585,5 @@ func TestMineFuelAndSmelt(t *testing.T) {
 			tasks, fuel := MineFuelAndSmelt(test.ore, test.fuel, test.machine, test.amount, test.extraFuel)
 			test.verify(tt, tasks, fuel)
 		})
-
 	}
 }

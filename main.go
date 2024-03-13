@@ -55,12 +55,9 @@ func main() {
 
 	tasks, f = buildSolarPanel(state, f)
 	must(t.Add(tasks...))
-	state.Boiler = nil
 
 	tasks, f = buildSteelFurnace(state, f)
 	must(t.Add(tasks...))
-
-	state.Furnace = building.NewFurnace(data.GetFurnace("steel-furnace"))
 
 	tasks, f = researchRGTech("automation-2", state, f)
 	must(t.Add(tasks...))
@@ -80,8 +77,10 @@ func main() {
 	tasks, f = buildOilSetup(state, f)
 	must(t.Add(tasks...))
 
-	tasks, _ = prodmod1(state, f)
+	tasks, f = prodmod1(state, f)
 	must(t.Add(tasks...))
+
+	must(t.Add(buildElectricFurnace(state, f)...))
 
 	t.Add(tas.Speed(1))
 
@@ -125,7 +124,7 @@ var techs = []string{
 	"modules",
 	"productivity-module", // first modules!
 	// "sulfur-processing",
-	// "chemical-science-pack", // blue science packs
+	// "chemical-science-pack",          // blue science packs
 	// "advanced-material-processing-2", // electric furnace
 	// "advanced-electronics-2",
 	// "productivity-module-2", // better modules

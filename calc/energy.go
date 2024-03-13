@@ -1,8 +1,6 @@
 package calc
 
 import (
-	"math"
-
 	"github.com/brettschalin/factorio-min-resources/building"
 	"github.com/brettschalin/factorio-min-resources/constants"
 	"github.com/brettschalin/factorio-min-resources/data"
@@ -29,16 +27,16 @@ func BoilerFuelCost(boiler *building.Boiler, fuel string, energy float64) float6
 }
 
 // RecipesFromFuel returns the number of recipes that can be crafted with the given amount of fuel
-func RecipesFromFuel(m building.CraftingBuilding, recipe *data.Recipe, fuel int, fuelType string) int {
+func RecipesFromFuel(m building.CraftingBuilding, recipe *data.Recipe, fuel float64, fuelType string) float64 {
 
 	// energy required for one smelt
 	energy := recipe.CraftingTime() * float64(m.EnergyUsage()) / float64(m.CraftingSpeed())
 
 	fItem := data.GetItem(fuelType)
 
-	ret := math.Floor((float64(fItem.FuelValue) * float64(fuel)) / energy)
+	ret := (float64(fItem.FuelValue) * fuel) / energy
 
-	return int(ret)
+	return ret
 }
 
 // FuelFromRecipes returns the amount of fuel required to craft the given number of recipes. It returns 0

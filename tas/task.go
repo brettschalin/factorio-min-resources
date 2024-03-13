@@ -662,7 +662,7 @@ func MineAndSmelt(ore string, machine building.CraftingBuilding, amount uint, fu
 }
 
 // MineFuelAndSmelt does the same batching as MineAndSmelt but also handles fueling the machine
-func MineFuelAndSmelt(ore, fuel string, machine building.CraftingBuilding, amount uint, extraFuel float64) (tasks Tasks, leftoverFuel float64) {
+func MineFuelAndSmelt(ore, fuel string, machine building.CraftingBuilding, nOre uint, extraFuel float64) (tasks Tasks, leftoverFuel float64) {
 	tasks = Tasks{}
 
 	fuelItem := data.GetItem(fuel)
@@ -672,39 +672,50 @@ func MineFuelAndSmelt(ore, fuel string, machine building.CraftingBuilding, amoun
 		rec              = data.GetSmeltingRecipe(ore)
 		plate            = rec.GetResults()[0]
 		recipeMultiplier = (float64(plate.Amount) / float64(rec.Ingredients.Amount(ore)))
+		recipesPerBatch  = calc.RecipesFromFuel(machine, rec, float64(fuelItem.StackSize), fuel)
 	)
-	recipesPerBatch := uint(calc.RecipesFromFuel(machine, rec, fuelItem.StackSize, fuel))
 
-	amt := shims.Min(recipesPerBatch, amount)
+	round := func(n uint) uint {
+		nIng := uint(rec.Ingredients.Amount(ore))
+		extra := n % nIng
+		if extra != 0 {
+			n = n + (nIng - extra)
+		}
+		return n
+	}
 
 	for {
 
-		if amt < recipesPerBatch {
+		// use the extra fuel we still have from last time
+		f := calc.RecipesFromFuel(machine, rec, extraFuel, fuel)
 
-			nFuel := calc.FuelFromRecipes(machine, data.GetSmeltingRecipe(ore), int(float64(amt)*recipeMultiplier), fuel) - extraFuel
+		nRecipe := shims.Min(f+recipesPerBatch, float64(nOre)*recipeMultiplier)
+
+		if nRecipe < f+recipesPerBatch {
+			nFuel := calc.FuelFromRecipes(machine, rec, int(nRecipe), fuel) - extraFuel
 			minedFuel := math.Ceil(nFuel)
 			extraFuel = minedFuel - nFuel
 
 			if minedFuel > 0 {
 				tasks.Add(FuelMachine(fuel, mName, uint(minedFuel))...)
 			}
-			t, _ := MineAndSmelt(ore, machine, amt, fuel)
+			t, _ := MineAndSmelt(ore, machine, round(uint(nRecipe/recipeMultiplier)), fuel)
 			tasks.Add(t...)
 
 			break
 		}
 
-		nFuel := calc.FuelFromRecipes(machine, data.GetSmeltingRecipe(ore), int(float64(amt)*recipeMultiplier), fuel) - extraFuel
+		minedOre := round(shims.Min(uint((recipesPerBatch+f)/recipeMultiplier), nOre))
+		nFuel := calc.FuelFromRecipes(machine, rec, int(nRecipe), fuel) - extraFuel
 		minedFuel := math.Ceil(nFuel)
 		extraFuel = minedFuel - nFuel
 
 		// fuel the machine and do some smelting
 		tasks.Add(FuelMachine(fuel, mName, uint(minedFuel))...)
-		t, _ := MineAndSmelt(ore, machine, shims.Min(recipesPerBatch, amount), fuel)
+		t, _ := MineAndSmelt(ore, machine, minedOre, fuel)
 		tasks.Add(t...)
 
-		amount -= amt
-		amt = shims.Min(recipesPerBatch, amount)
+		nOre -= minedOre
 	}
 	return tasks, extraFuel
 }

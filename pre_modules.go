@@ -3,6 +3,7 @@ package main
 import (
 	"math"
 
+	"github.com/brettschalin/factorio-min-resources/building"
 	"github.com/brettschalin/factorio-min-resources/calc"
 	"github.com/brettschalin/factorio-min-resources/constants"
 	"github.com/brettschalin/factorio-min-resources/data"
@@ -217,6 +218,8 @@ func buildSolarPanel(state *state.State, extraFuel float64) (tas.Tasks, float64)
 	tasks[len(tasks)-2].Prerequisites().Add(techMap["solar-energy"])
 	tasks[len(tasks)-1].Prerequisites().Add(tasks[len(tasks)-3])
 
+	state.Boiler = nil
+
 	return tasks, extraFuel
 }
 
@@ -295,6 +298,8 @@ func buildSteelFurnace(state *state.State, extraFuel float64) (tas.Tasks, float6
 	c = tas.Build("steel-furnace", 0)
 	c.Prerequisites().Add(playerHasItem("steel-furnace", 1))
 	tasks.Add(c)
+
+	state.Furnace = building.NewFurnace(data.GetFurnace("steel-furnace"))
 
 	// furnace is replaced and the extra fuel is reset
 	return tasks, 0
