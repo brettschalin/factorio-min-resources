@@ -212,8 +212,8 @@ func buildRecDeps(items map[string]int) *recipeDependency {
 	return root
 }
 
-// RecipeAllIngredients returns the list of items that need to be created in order
-// to craft the final item.
+// RecipeAllIngredients returns the list of recipes that need to be created in order
+// to craft the final item(s).
 func RecipeAllIngredients(recipes map[*data.Recipe]int, state *state.State) (data.Ingredients, error) {
 	if len(recipes) == 0 {
 		return nil, errors.New("no recipe to craft")
@@ -228,25 +228,29 @@ func RecipeAllIngredients(recipes map[*data.Recipe]int, state *state.State) (dat
 
 	deps := buildRecDeps(ings)
 
-	// ingredients used in multiple recipes can be messed up by rounding issues. We fix this by keeping the amounts as floats
-	// until we actually need to use them
-	amounts := map[string]float64{}
+	// total amounts can be messed up by rounding during recipe-ingredient count conversions.
+	// Keep everything as ingredient count until we actually process it
+	amounts := map[string]int{}
 
+	// get each item, apply the productivity bonus to it, adjust its
+	// ingredient counts, and then do the same for the ingredients.
 	deps.iter(func(r *recipeDependency) {
 
-		bonus := float64(1)
-		if state != nil && r.recipe != nil {
-			bonus += state.GetProductivityBonus(r.recipe)
+		if r.originalAmount == 0 {
+			r.originalAmount = r.amount
 		}
 
-		// round up to nearest multiple of recipe
+		if amounts[r.item] == 0 {
+			amounts[r.item] = r.originalAmount
+		}
+
+		amt := amounts[r.item]
+
+		// make sure we're dealing with a whole number of recipe crafts
 		p := 1
 		if r.recipe != nil {
 			p = r.recipe.ProductCount(r.item)
 		}
-
-		amt := int(math.Ceil(amounts[r.item]))
-
 		extra := amt % p
 		if extra != 0 {
 			amt = amt + (p - extra)
@@ -254,40 +258,36 @@ func RecipeAllIngredients(recipes map[*data.Recipe]int, state *state.State) (dat
 		if amt > 0 {
 			r.amount = amt
 		}
-		itemDiff := r.originalAmount - r.amount
 
-		// if we're not making enough to trigger any production bonuses, don't apply them to the ingredients
-		shouldSubIngredients := true
-
-		if bonus > 1 && r.recipe != nil {
-			recipeCount := math.Ceil(float64(r.amount) / float64(r.recipe.ProductCount(r.item)))
-			shouldSubIngredients = 1/(bonus-1) < recipeCount
+		var recDiff int
+		if r.originalAmount > r.amount {
+			d := r.originalAmount - r.amount
+			recDiff = d / p
 		}
 
+		var bonus float64
+		if state != nil && r.recipe != nil {
+			bonus = state.GetProductivityBonus(r.recipe)
+		}
+
+		// subtract ingredients not needed after productivity bonus is applied
+		nRec := int(math.Ceil(float64(r.amount) / float64(p)))
+		recCount, _ := countWithBonus(nRec, bonus, false)
 		for _, dep := range r.deps {
 
-			fAmt := amounts[dep.item]
-			if fAmt == 0 {
-				fAmt = float64(dep.originalAmount)
-				amounts[dep.item] = fAmt
+			nIng := r.recipe.Ingredients.Amount(dep.item)
+			if amounts[dep.item] == 0 {
+				amounts[dep.item] = dep.amount
 			}
 
-			if itemDiff > 0 {
-				amt := float64(itemDiff) * float64(r.recipe.Ingredients.Amount(dep.item)) / float64(r.recipe.ProductCount(r.item))
-
-				amounts[dep.item] -= amt
+			if recDiff > 0 {
+				amounts[dep.item] -= recDiff * nIng
 			}
 
-			if !shouldSubIngredients {
-				continue
-			}
+			diff := nRec - recCount
 
-			fAmt = float64(r.amount) * float64(r.recipe.Ingredients.Amount(dep.item)) / float64(r.recipe.ProductCount(r.item))
-			bon := float64(fAmt) / bonus
-			diff := float64(fAmt) - bon
-			amounts[dep.item] -= diff
+			amounts[dep.item] -= diff * nIng
 		}
-
 	})
 
 	// convert to ingredient list

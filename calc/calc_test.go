@@ -445,15 +445,15 @@ func TestRecipeAllIngredients(t *testing.T) {
 			result: data.Ingredients{
 				{
 					Name:   "copper-ore",
-					Amount: 335,
+					Amount: 337,
 				},
 				{
 					Name:   "iron-ore",
-					Amount: 143,
+					Amount: 144,
 				},
 				{
 					Name:   "copper-plate",
-					Amount: 375,
+					Amount: 377,
 				},
 				{
 					Name:   "coal",
@@ -461,15 +461,15 @@ func TestRecipeAllIngredients(t *testing.T) {
 				},
 				{
 					Name:   "petroleum-gas",
-					Amount: 1526,
+					Amount: 1540,
 				},
 				{
 					Name:   "iron-plate",
-					Amount: 160,
+					Amount: 161,
 				},
 				{
 					Name:   "copper-cable",
-					Amount: 838,
+					Amount: 844,
 				},
 				{
 					Name:   "plastic-bar",
@@ -477,7 +477,7 @@ func TestRecipeAllIngredients(t *testing.T) {
 				},
 				{
 					Name:   "electronic-circuit",
-					Amount: 179,
+					Amount: 180,
 				},
 				{
 					Name:   "advanced-circuit",
@@ -492,23 +492,23 @@ func TestRecipeAllIngredients(t *testing.T) {
 			result: data.Ingredients{
 				{
 					Name:   "copper-ore",
-					Amount: 851,
+					Amount: 875,
 				},
 				{
 					Name:   "iron-ore",
-					Amount: 507,
+					Amount: 523,
 				},
 				{
 					Name:   "copper-plate",
-					Amount: 953,
+					Amount: 980,
 				},
 				{
 					Name:   "coal",
-					Amount: 94,
+					Amount: 95,
 				},
 				{
 					Name:   "petroleum-gas",
-					Amount: 2015,
+					Amount: 2050,
 				},
 				{
 					Name:   "water",
@@ -516,7 +516,7 @@ func TestRecipeAllIngredients(t *testing.T) {
 				},
 				{
 					Name:   "iron-plate",
-					Amount: 567,
+					Amount: 585,
 				},
 				{
 					Name:   "sulfur",
@@ -524,15 +524,15 @@ func TestRecipeAllIngredients(t *testing.T) {
 				},
 				{
 					Name:   "copper-cable",
-					Amount: 2134,
+					Amount: 2194,
 				},
 				{
 					Name:   "plastic-bar",
-					Amount: 220,
+					Amount: 222,
 				},
 				{
 					Name:   "electronic-circuit",
-					Amount: 632,
+					Amount: 652,
 				},
 				{
 					Name:   "sulfuric-acid",
@@ -540,7 +540,7 @@ func TestRecipeAllIngredients(t *testing.T) {
 				},
 				{
 					Name:   "advanced-circuit",
-					Amount: 123,
+					Amount: 124,
 				},
 				{
 					Name:   "speed-module",
