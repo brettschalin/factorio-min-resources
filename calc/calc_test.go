@@ -28,29 +28,29 @@ func TestMain(m *testing.M) {
 	refinery = building.NewAssembler(data.GetAssemblingMachine("oil-refinery"))
 	furnace = building.NewFurnace(data.GetFurnace("electric-furnace"))
 
-	prodmod1 = data.GetModule("productivity-module")
-	prodmod2 = data.GetModule("productivity-module-2")
-	prodmod3 = data.GetModule("productivity-module-3")
+	prodmod1 = "productivity-module"
+	prodmod2 = "productivity-module-2"
+	prodmod3 = "productivity-module-3"
 
-	err = assemblerModules.SetModules(building.Modules{prodmod2, prodmod2})
+	err = assemblerModules.PutModules([]string{prodmod2, prodmod2})
 
 	if err != nil {
 		log.Fatalf("could not add modules to assembler: %v", err)
 	}
 
-	err = chemPlant.SetModules(building.Modules{prodmod2, prodmod2, prodmod2})
+	err = chemPlant.PutModules([]string{prodmod2, prodmod2, prodmod2})
 
 	if err != nil {
 		log.Fatalf("could not add modules to chem plant: %v", err)
 	}
 
-	err = refinery.SetModules(building.Modules{prodmod2, prodmod2, prodmod2})
+	err = refinery.PutModules([]string{prodmod2, prodmod2, prodmod2})
 
 	if err != nil {
 		log.Fatalf("could not add modules to refinery: %v", err)
 	}
 
-	err = furnace.SetModules(building.Modules{prodmod2, prodmod2})
+	err = furnace.PutModules([]string{prodmod2, prodmod2})
 
 	if err != nil {
 		log.Fatalf("could not add modules to furnace: %v", err)
@@ -73,7 +73,7 @@ var (
 	assemblerNoModules, assemblerModules *building.Assembler
 	chemPlant, refinery                  *building.Assembler
 	furnace                              *building.Furnace
-	prodmod1, prodmod2, prodmod3         *data.Module
+	prodmod1, prodmod2, prodmod3         string
 )
 
 func TestRecipeCost(t *testing.T) {

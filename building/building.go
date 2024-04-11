@@ -1,7 +1,7 @@
 package building
 
 import (
-	"fmt"
+	"sort"
 
 	"github.com/brettschalin/factorio-min-resources/constants"
 	"github.com/brettschalin/factorio-min-resources/data"
@@ -14,34 +14,12 @@ type slots struct {
 	Modules constants.Inventory
 }
 
-type Modules []*data.Module
-
-func (m Modules) ProductivityBonus(recipe string) float64 {
-	var bonus float64
-
-	for _, mod := range m {
-		if mod.AppliesTo(recipe) {
-			bonus += mod.ProductivityBonus()
-		}
-	}
-
-	return bonus
-}
-
-type ErrTooManyModules struct {
-	machine  string
-	max, got int
-}
-
-func (e ErrTooManyModules) Error() string {
-	return fmt.Sprintf(`tried to add %d modules but machine %q can only accept %d`, e.got, e.machine, e.max)
-}
-
 type Building interface {
 	Name() string
 	Slots() *slots
-	GetModules() Modules
-	SetModules(mod Modules) error
+	Inventory(slot constants.Inventory) Inventory
+	PutModules(modules []string) error
+	TakeModules(modules []string) error
 	ProductivityBonus(recipe string) float64
 }
 
@@ -52,25 +30,74 @@ type CraftingBuilding interface {
 	CraftingSpeed() float64
 }
 
+func putModules(inv *Modules, modules []string) error {
+	if len(modules) == 0 {
+		return nil
+	}
+	sort.Strings(modules)
+	i := 1
+	last := modules[0]
+	for idx := 1; idx < len(modules); idx++ {
+		m := modules[idx]
+		if m == last {
+			i += 1
+			continue
+		}
+		err := inv.Put(last, i)
+		if err != nil {
+			return err
+		}
+		last = m
+		i = 1
+	}
+	return inv.Put(last, i)
+}
+
+func takeModules(inv *Modules, modules []string) error {
+	if len(modules) == 0 {
+		return nil
+	}
+	sort.Strings(modules)
+	i := 1
+	last := modules[0]
+	for idx := 1; idx < len(modules); idx++ {
+		m := modules[idx]
+		if m == last {
+			i += 1
+			continue
+		}
+		err := inv.Take(last, i)
+		if err != nil {
+			return err
+		}
+		last = m
+		i = 1
+	}
+	return inv.Take(last, i)
+}
+
 type Assembler struct {
-	Entity  *data.AssemblingMachine
-	slots   slots
-	modules Modules
+	Entity *data.AssemblingMachine
+	slots  slots
+
+	fuel   *inventory
+	input  *inventory
+	output *inventory
+
+	modules *Modules
 }
 
 func NewAssembler(spec *data.AssemblingMachine) *Assembler {
-	var mods Modules
-	if n := spec.ModuleSpecification.ModuleSlots; n > 0 {
-		mods = make(Modules, n)
-	}
 
 	// vanilla contains no burner assemblers of any kind (only furnaces) but mods might so account for that here
 	var fuelSlot constants.Inventory
+	var fuelInv *inventory
 	if spec.IsBurner() {
 		fuelSlot = constants.InventoryFuel
+		fuelInv = newInventory(1, nil)
 	}
 
-	return &Assembler{
+	a := &Assembler{
 		Entity: spec,
 		slots: slots{
 			Input:   constants.InventoryAssemblingMachineInput,
@@ -78,8 +105,18 @@ func NewAssembler(spec *data.AssemblingMachine) *Assembler {
 			Fuel:    fuelSlot,
 			Modules: constants.InventoryAssemblingMachineModules,
 		},
-		modules: mods,
+		fuel:   fuelInv,
+		input:  newInventory(1, nil),
+		output: newInventory(1, nil),
 	}
+	a.modules = &Modules{machine: a, maxSlots: spec.ModuleSpecification.ModuleSlots}
+
+	return a
+}
+
+func (a *Assembler) SetRecipe(recipe *data.Recipe) map[string]float64 {
+	// TODO: make new inventories depending on ingredients/products
+	return nil
 }
 
 func (a *Assembler) Name() string {
@@ -90,17 +127,26 @@ func (a *Assembler) Slots() *slots {
 	return &a.slots
 }
 
-func (a *Assembler) GetModules() Modules {
-	return a.modules
+func (a *Assembler) Inventory(slot constants.Inventory) Inventory {
+	switch slot {
+	case constants.InventoryFuel:
+		return a.fuel
+	case constants.InventoryAssemblingMachineInput:
+		return a.input
+	case constants.InventoryAssemblingMachineOutput:
+		return a.output
+	case constants.InventoryAssemblingMachineModules:
+		return a.modules
+	}
+	return nil
 }
 
-func (a *Assembler) SetModules(mod Modules) error {
-	if modSlots := a.Entity.ModuleSpecification.ModuleSlots; len(mod) > modSlots {
-		return ErrTooManyModules{machine: a.Name(), max: modSlots, got: len(mod)}
-	}
+func (a *Assembler) PutModules(modules []string) error {
+	return putModules(a.modules, modules)
+}
 
-	a.modules = mod
-	return nil
+func (a *Assembler) TakeModules(modules []string) error {
+	return takeModules(a.modules, modules)
 }
 
 func (a *Assembler) EnergySource() data.EnergySource {
@@ -126,26 +172,42 @@ func (a *Assembler) ProductivityBonus(recipe string) float64 {
 }
 
 type Furnace struct {
-	Entity  *data.Furnace
-	slots   slots
-	modules Modules
+	Entity *data.Furnace
+	slots  slots
+
+	fuel   *inventory
+	input  *inventory
+	output *inventory
+
+	modules *Modules
 }
 
 func NewFurnace(spec *data.Furnace) *Furnace {
-	var mods Modules
-	if n := spec.ModuleSpecification.ModuleSlots; n > 0 {
-		mods = make(Modules, n)
+	// electric furnaces don't have fuel inputs
+	var fuelSlot constants.Inventory
+	var fuelInv *inventory
+	if spec.IsBurner() {
+		fuelSlot = constants.InventoryFuel
+		fuelInv = newInventory(1, nil)
 	}
-	return &Furnace{
+
+	f := &Furnace{
 		Entity: spec,
 		slots: slots{
 			Input:   constants.InventoryFurnaceSource,
 			Output:  constants.InventoryFurnaceResult,
-			Fuel:    constants.InventoryFuel,
+			Fuel:    fuelSlot,
 			Modules: constants.InventoryFurnaceModules,
 		},
-		modules: mods,
+
+		fuel:   fuelInv,
+		input:  newInventory(1, nil),
+		output: newInventory(1, nil),
 	}
+
+	f.modules = &Modules{machine: f, maxSlots: spec.ModuleSpecification.ModuleSlots}
+
+	return f
 }
 
 func (f *Furnace) Name() string {
@@ -156,17 +218,26 @@ func (f *Furnace) Slots() *slots {
 	return &f.slots
 }
 
-func (f *Furnace) GetModules() Modules {
-	return f.modules
+func (f *Furnace) Inventory(slot constants.Inventory) Inventory {
+	switch slot {
+	case constants.InventoryFuel:
+		return f.fuel
+	case constants.InventoryFurnaceSource:
+		return f.input
+	case constants.InventoryFurnaceResult:
+		return f.output
+	case constants.InventoryFurnaceModules:
+		return f.modules
+	}
+	return nil
 }
 
-func (f *Furnace) SetModules(mod Modules) error {
-	if modSlots := f.Entity.ModuleSpecification.ModuleSlots; len(mod) > modSlots {
-		return ErrTooManyModules{machine: f.Name(), max: modSlots, got: len(mod)}
-	}
+func (f *Furnace) PutModules(modules []string) error {
+	return putModules(f.modules, modules)
+}
 
-	f.modules = mod
-	return nil
+func (f *Furnace) TakeModules(modules []string) error {
+	return takeModules(f.modules, modules)
 }
 
 func (f *Furnace) EnergySource() data.EnergySource {
@@ -194,6 +265,11 @@ func (f *Furnace) ProductivityBonus(recipe string) float64 {
 type Boiler struct {
 	Entity *data.Boiler
 	slots  slots
+	fuel   *inventory
+
+	// boilers can't hold modules. This exists to keep compatibility with the Building interface
+	// and is given a max size of zero on initialization
+	modules *Modules
 
 	// I only care about the effective power conversion,
 	// so this will act like a combined boiler/steam engine
@@ -201,12 +277,17 @@ type Boiler struct {
 }
 
 func NewBoiler(spec *data.Boiler) *Boiler {
-	return &Boiler{
+	b := &Boiler{
 		Entity: spec,
 		slots: slots{
 			Fuel: constants.InventoryFuel,
 		},
+		fuel: newInventory(1, nil),
 	}
+
+	b.modules = &Modules{machine: b, maxSlots: 0}
+
+	return b
 }
 
 func (b *Boiler) Name() string {
@@ -217,30 +298,45 @@ func (b *Boiler) Slots() *slots {
 	return &b.slots
 }
 
-func (b *Boiler) GetModules() Modules {
-	return Modules{}
+func (b *Boiler) PutModules(modules []string) error {
+	return putModules(b.modules, modules)
+}
+
+func (b *Boiler) TakeModules(modules []string) error {
+	return takeModules(b.modules, modules)
+}
+
+func (b *Boiler) Inventory(slot constants.Inventory) Inventory {
+	if slot == constants.InventoryFuel {
+		return b.fuel
+	}
+	return nil
+}
+
+func (b *Boiler) ProductivityBonus(recipe string) float64 {
+	return 0
 }
 
 type Lab struct {
 	Entity  *data.Lab
 	slots   slots
-	modules Modules
+	input   *inventory
+	modules *Modules
 }
 
 func NewLab(spec *data.Lab) *Lab {
-	var mods Modules
-	if n := spec.ModuleSpecification.ModuleSlots; n > 0 {
-		mods = make(Modules, n)
-	}
-
-	return &Lab{
+	l := &Lab{
 		Entity: spec,
 		slots: slots{
 			Input:   constants.InventoryLabInput,
 			Modules: constants.InventoryLabModules,
 		},
-		modules: mods,
+		input: newInventory(len(spec.Inputs), nil),
 	}
+
+	l.modules = &Modules{machine: l, maxSlots: spec.ModuleSpecification.ModuleSlots}
+
+	return l
 }
 
 func (l *Lab) Name() string {
@@ -251,23 +347,23 @@ func (l *Lab) Slots() *slots {
 	return &l.slots
 }
 
-func (l *Lab) GetModules() Modules {
-	return l.modules
+func (l *Lab) PutModules(modules []string) error {
+	return putModules(l.modules, modules)
 }
 
-func (l *Lab) SetModules(mod Modules) error {
-	if modSlots := l.Entity.ModuleSpecification.ModuleSlots; len(mod) > modSlots {
-		return ErrTooManyModules{machine: l.Name(), max: modSlots, got: len(mod)}
-	}
+func (l *Lab) TakeModules(modules []string) error {
+	return takeModules(l.modules, modules)
+}
 
-	l.modules = mod
+func (l *Lab) ProductivityBonus(_ string) float64 {
+	return l.modules.ProductivityBonus("")
+}
+
+func (l *Lab) Inventory(slot constants.Inventory) Inventory {
+	if slot == constants.InventoryLabInput {
+		return l.input
+	} else if slot == constants.InventoryLabModules {
+		return l.modules
+	}
 	return nil
-}
-
-func (l *Lab) ProductivityBonus() float64 {
-	var bonus float64
-	for _, m := range l.modules {
-		bonus += m.ProductivityBonus()
-	}
-	return bonus
 }
