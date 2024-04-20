@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/brettschalin/factorio-min-resources/building"
 	"github.com/brettschalin/factorio-min-resources/constants"
+	"github.com/brettschalin/factorio-min-resources/data"
 	"github.com/brettschalin/factorio-min-resources/state"
 	"github.com/r3labs/diff/v3"
 )
@@ -66,6 +68,7 @@ func TestVerifyState(t *testing.T) {
 			name: "valid",
 			input: TAS{
 				tasks: Tasks{
+					Build("lab", 0),
 					Craft("automation-science-pack", 10),
 					Tech("automation"),
 					Transfer("lab", "automation-science-pack", constants.InventoryLabInput, 10, false),
@@ -73,10 +76,12 @@ func TestVerifyState(t *testing.T) {
 			},
 			inState: &state.State{
 				Inventory: map[string]uint{
+					"lab":          1,
 					"iron-plate":   20,
 					"copper-plate": 15,
 				},
 				TechResearched: map[string]bool{},
+				Buildings:      map[string]bool{},
 			},
 			outState: &state.State{
 				TechResearched: map[string]bool{
@@ -85,6 +90,8 @@ func TestVerifyState(t *testing.T) {
 				Inventory: map[string]uint{
 					"copper-plate": 5,
 				},
+				Buildings: map[string]bool{"lab": true},
+				Lab:       building.NewLab(data.GetLab("lab")),
 			},
 		}, {
 			name: "unresearched technology",

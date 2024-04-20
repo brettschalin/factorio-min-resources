@@ -23,11 +23,31 @@ type Building interface {
 	ProductivityBonus(recipe string) float64
 }
 
+type CraftStatus byte
+
+const (
+	CraftStatusNoRecipe CraftStatus = iota
+	CraftStatusRunning
+	CraftStatusWaitingForInput
+	CraftStatusOutputBlocked
+)
+
 type CraftingBuilding interface {
 	Building
 	EnergySource() data.EnergySource
 	EnergyUsage() float64
 	CraftingSpeed() float64
+
+	// the current recipe that's set or (for furnaces) computed based on the input
+	Recipe() *data.Recipe
+
+	// Current status of the machine. Crafting is simplified and assumed to be instant
+	// as long as the ingredients are present and there's space to put the products
+	Status() CraftStatus
+
+	// applies one crafting cycle, accounting for inventory limitations and
+	// module bonuses, and returns the status of the machine
+	DoCraft() CraftStatus
 }
 
 func putModules(inv *Modules, modules []string) error {
@@ -84,6 +104,11 @@ type Assembler struct {
 	input  *inventory
 	output *inventory
 
+	recipe *data.Recipe
+
+	prodBonusProgress float64
+	status            CraftStatus
+
 	modules *Modules
 }
 
@@ -114,9 +139,46 @@ func NewAssembler(spec *data.AssemblingMachine) *Assembler {
 	return a
 }
 
-func (a *Assembler) SetRecipe(recipe *data.Recipe) map[string]float64 {
-	// TODO: make new inventories depending on ingredients/products
-	return nil
+func (a *Assembler) SetRecipe(recipe *data.Recipe) map[string]int {
+
+	if a.recipe != nil && a.recipe.Name == recipe.Name {
+		return nil
+	}
+
+	if !a.Entity.CanCraft(recipe) {
+		return nil
+	}
+
+	a.prodBonusProgress = 0
+	inv := map[string]int{}
+
+	for item, n := range a.input.data {
+		inv[item] += n
+	}
+	limits := make([]string, 0, len(recipe.Ingredients))
+	for _, ing := range recipe.Ingredients {
+		limits = append(limits, ing.Name)
+	}
+
+	a.input = newInventory(len(limits), limits)
+
+	for item, n := range a.output.data {
+		inv[item] += n
+	}
+
+	limits = make([]string, 0, len(recipe.Results))
+	for _, prod := range recipe.GetResults() {
+		limits = append(limits, prod.Name)
+	}
+	a.output = newInventory(len(limits), limits)
+	a.recipe = recipe
+	a.status = CraftStatusWaitingForInput
+
+	return inv
+}
+
+func (a *Assembler) Recipe() *data.Recipe {
+	return a.recipe
 }
 
 func (a *Assembler) Name() string {
@@ -171,6 +233,78 @@ func (a *Assembler) ProductivityBonus(recipe string) float64 {
 	return a.modules.ProductivityBonus(recipe)
 }
 
+func (a *Assembler) DoCraft() CraftStatus {
+
+	rec := a.recipe
+
+	if rec == nil {
+		return CraftStatusNoRecipe
+	}
+
+	// check productivity bonus output
+	if a.prodBonusProgress >= 1 {
+		if !a.output.canAdd(rec, 1, false) {
+			a.status = CraftStatusOutputBlocked
+			return CraftStatusOutputBlocked
+		}
+
+		for _, p := range rec.GetResults() {
+			if !p.IsFluid {
+				_ = a.output.Put(p.Name, p.Amount)
+			}
+		}
+		a.prodBonusProgress -= 1
+	}
+
+	// check if we have enough input in the machine
+	canStart := true
+	for _, ing := range rec.Ingredients {
+		if ing.IsFluid {
+			continue
+		}
+		if a.input.Count(ing.Name) < ing.Amount {
+			canStart = false
+			break
+		}
+	}
+	if !canStart {
+		return CraftStatusWaitingForInput
+	}
+
+	// check if we have enough space in the output
+	if !a.output.canAdd(rec, 1, false) {
+		a.status = CraftStatusOutputBlocked
+		return CraftStatusOutputBlocked
+	}
+
+	// take one recipe's worth of input
+	for _, ing := range rec.Ingredients {
+		if ing.IsFluid {
+			continue
+		}
+		_ = a.input.Take(ing.Name, ing.Amount)
+	}
+
+	// add one recipe's worth of output
+	for _, prod := range rec.GetResults() {
+		if prod.IsFluid {
+			continue
+		}
+		_ = a.output.Put(prod.Name, prod.Amount)
+	}
+
+	// increment prod bonus
+	a.prodBonusProgress += a.ProductivityBonus(rec.Name)
+
+	a.status = CraftStatusRunning
+	return CraftStatusRunning
+
+}
+
+func (a *Assembler) Status() CraftStatus {
+	return a.status
+}
+
 type Furnace struct {
 	Entity *data.Furnace
 	slots  slots
@@ -178,6 +312,10 @@ type Furnace struct {
 	fuel   *inventory
 	input  *inventory
 	output *inventory
+
+	prodBonusProgress float64
+	status            CraftStatus
+	recipe            *data.Recipe
 
 	modules *Modules
 }
@@ -232,6 +370,29 @@ func (f *Furnace) Inventory(slot constants.Inventory) Inventory {
 	return nil
 }
 
+func (f *Furnace) Recipe() *data.Recipe {
+
+	var rec *data.Recipe
+	for i, n := range f.input.data {
+		if n > 0 {
+			rec = data.GetSmeltingRecipe(i)
+			break
+		}
+	}
+
+	if rec != nil {
+		if rec != f.recipe {
+			f.status = CraftStatusWaitingForInput
+			f.prodBonusProgress = 0
+		}
+
+		f.recipe = rec
+		return rec
+	}
+
+	return f.recipe
+}
+
 func (f *Furnace) PutModules(modules []string) error {
 	return putModules(f.modules, modules)
 }
@@ -260,6 +421,78 @@ func (f *Furnace) ProductivityBonus(recipe string) float64 {
 		return 0
 	}
 	return f.modules.ProductivityBonus(recipe)
+}
+
+func (f *Furnace) DoCraft() CraftStatus {
+
+	rec := f.Recipe()
+	if rec == nil {
+		f.status = CraftStatusNoRecipe
+		return CraftStatusNoRecipe
+	}
+
+	// check productivity bonus output
+	if f.prodBonusProgress >= 1 {
+		if !f.output.canAdd(rec, 1, false) {
+			f.status = CraftStatusOutputBlocked
+			return CraftStatusOutputBlocked
+		}
+
+		for _, p := range rec.GetResults() {
+			if !p.IsFluid {
+				_ = f.output.Put(p.Name, p.Amount)
+			}
+		}
+		f.prodBonusProgress -= 1
+	}
+
+	// check if we have enough input in the machine
+	canStart := true
+	for _, ing := range rec.Ingredients {
+		if ing.IsFluid {
+			continue
+		}
+		if f.input.Count(ing.Name) < ing.Amount {
+			canStart = false
+			break
+		}
+	}
+	if !canStart {
+		f.status = CraftStatusWaitingForInput
+		return CraftStatusWaitingForInput
+	}
+
+	// check if we have enough space in the output
+	if !f.output.canAdd(rec, 1, false) {
+		f.status = CraftStatusOutputBlocked
+		return CraftStatusOutputBlocked
+	}
+
+	// take one recipe's worth of input
+	for _, ing := range rec.Ingredients {
+		if ing.IsFluid {
+			continue
+		}
+		_ = f.input.Take(ing.Name, ing.Amount)
+	}
+
+	// add one recipe's worth of output
+	for _, prod := range rec.GetResults() {
+		if prod.IsFluid {
+			continue
+		}
+		_ = f.output.Put(prod.Name, prod.Amount)
+	}
+
+	// increment prod bonus
+	f.prodBonusProgress += f.ProductivityBonus(rec.Name)
+
+	f.status = CraftStatusRunning
+	return CraftStatusRunning
+}
+
+func (f *Furnace) Status() CraftStatus {
+	return f.status
 }
 
 type Boiler struct {
@@ -331,7 +564,7 @@ func NewLab(spec *data.Lab) *Lab {
 			Input:   constants.InventoryLabInput,
 			Modules: constants.InventoryLabModules,
 		},
-		input: newInventory(len(spec.Inputs), nil),
+		input: newInventory(len(spec.Inputs), spec.Inputs),
 	}
 
 	l.modules = &Modules{machine: l, maxSlots: spec.ModuleSpecification.ModuleSlots}

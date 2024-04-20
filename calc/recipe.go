@@ -358,7 +358,7 @@ func Handcraft(inventory Items[uint], recipe *data.Recipe, amount uint) (newInve
 // OneStackRecipe returns the number of crafts of a recipe that can be done if given one
 // stack of each input item, and at most produces one stack of output.
 // Fluid inputs are skipped since they're not subject to the same stacking constraints
-func OneStackRecipe(r *data.Recipe) int {
+func OneStackRecipe(r *data.Recipe) uint {
 	count := math.MaxInt
 
 	for _, ing := range r.Ingredients {
@@ -378,5 +378,5 @@ func OneStackRecipe(r *data.Recipe) int {
 		count = c
 	}
 
-	return count
+	return uint(count)
 }

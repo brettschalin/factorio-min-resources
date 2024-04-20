@@ -567,43 +567,119 @@ func Walk(location geo.Point) Task {
 	}
 }
 
-// Craft inside a machine (assembler or furnace). Returns the tasks and how much fuel, if any, the machine used in the process
-func MachineCraft(recipe string, machine building.CraftingBuilding, amount uint, fuel string) (tasks Tasks, fuelUsed float64) {
+// Craft inside a machine (assembler or furnace). Returns the tasks required
+func MachineCraft(recipe string, machine building.CraftingBuilding, amount uint, fuel string) Tasks {
+
+	var (
+		rec   *data.Recipe
+		tasks = Tasks{}
+	)
 
 	switch m := machine.(type) {
 	case *building.Assembler:
 		// only assemblers can have set recipes
-		tasks.Add(Recipe(m.Name(), recipe))
-
+		if r := m.Recipe(); r == nil || r.Name != recipe {
+			tasks.Add(Recipe(m.Name(), recipe))
+			// updating inventory not necessary here
+			m.SetRecipe(data.GetRecipe(recipe))
+		}
+		rec = m.Recipe()
 	case *building.Furnace:
+		rec = data.GetRecipe(recipe)
 	default:
 		panic(fmt.Sprintf(`cannot handle building type %T`, m))
 	}
+
 	var (
-		mName   = machine.Name()
-		inSlot  = machine.Slots().Input
-		outSlot = machine.Slots().Output
+		mName           = machine.Name()
+		inSlot          = machine.Slots().Input
+		outSlot         = machine.Slots().Output
+		onlyFluidInputs = true
 	)
 
-	rec := data.GetRecipe(recipe)
-	for _, i := range rec.Ingredients {
-		if i.IsFluid {
-			continue
+	for _, ing := range rec.Ingredients {
+		if !ing.IsFluid {
+			onlyFluidInputs = false
+			break
 		}
-		tasks.Add(Transfer(mName, i.Name, inSlot, amount*uint(i.Amount), false))
 	}
 
-	for _, p := range rec.GetResults() {
-		if p.IsFluid {
-			continue
+	batchSize := calc.OneStackRecipe(rec)
+	status := building.CraftStatusRunning
+	for amount > 0 {
+
+		amt := shims.Min(amount, batchSize)
+		thisBatch := uint(0)
+
+		// add batch of inputs
+		for _, ing := range rec.Ingredients {
+			if !ing.IsFluid {
+				tasks.Add(Transfer(mName, ing.Name, inSlot, amt*uint(ing.Amount), false))
+				_ = machine.Inventory(inSlot).Put(ing.Name, int(amt)*ing.Amount)
+			}
 		}
-		tasks.Add(
-			WaitInventory(mName, p.Name, outSlot, amount*uint(p.Amount), true),
-			Transfer(mName, p.Name, outSlot, amount*uint(p.Amount), true),
-		)
+
+		// simulate crafts
+		for {
+			status = machine.DoCraft()
+			if status != building.CraftStatusRunning || thisBatch == amt {
+				break
+			}
+			thisBatch++
+		}
+
+		// If we're blocked because of productivity bonuses, take the extra
+		if status == building.CraftStatusOutputBlocked && !onlyFluidInputs {
+			for _, prod := range rec.GetResults() {
+				if !prod.IsFluid {
+					toTake := uint(machine.Inventory(outSlot).Count(prod.Name))
+					tasks.Add(
+						WaitInventory(mName, prod.Name, outSlot, toTake, true),
+						Transfer(mName, prod.Name, outSlot, toTake, true),
+					)
+					_ = machine.Inventory(outSlot).Take(prod.Name, int(toTake))
+				}
+			}
+
+			// and craft until we can't
+			for {
+				status = machine.DoCraft()
+				if status != building.CraftStatusRunning {
+					break
+				}
+			}
+		}
+
+		// take outputs
+		for _, prod := range rec.GetResults() {
+			if !prod.IsFluid {
+				toTake := uint(machine.Inventory(outSlot).Count(prod.Name))
+				tasks.Add(
+					WaitInventory(mName, prod.Name, outSlot, toTake, true),
+					Transfer(mName, prod.Name, outSlot, toTake, true),
+				)
+				_ = machine.Inventory(outSlot).Take(prod.Name, int(toTake))
+			}
+		}
+
+		amount -= amt
 	}
 
-	return tasks, calc.FuelFromRecipes(machine, rec, int(amount), fuel)
+	// take the last batch
+	for _, prod := range rec.GetResults() {
+		if !prod.IsFluid {
+			toTake := uint(machine.Inventory(outSlot).Count(prod.Name))
+			if toTake > 0 {
+				tasks.Add(
+					WaitInventory(mName, prod.Name, outSlot, toTake, true),
+					Transfer(mName, prod.Name, outSlot, toTake, true),
+				)
+				_ = machine.Inventory(outSlot).Take(prod.Name, int(toTake))
+			}
+		}
+	}
+
+	return tasks
 }
 
 // MineAndSmelt properly intersperses mining, waiting, and transferring

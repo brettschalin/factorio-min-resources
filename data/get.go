@@ -49,6 +49,14 @@ func GetItem(name string) *Item {
 	return &x
 }
 
+func GetTool(name string) *Tool {
+	x := d.Tool[name]
+	if x.Name == "" {
+		return nil
+	}
+	return &x
+}
+
 func GetLab(name string) *Lab {
 	x := d.Lab[name]
 	if x.Name == "" {
@@ -72,3 +80,4 @@ func GetRocketSilo(name string) *RocketSilo {
 	}
 	return &x
 }
+

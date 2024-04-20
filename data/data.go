@@ -43,6 +43,7 @@ type Data struct {
 	Furnace    map[string]Furnace    `json:"furnace"`
 	Generator  map[string]Generator  `json:"generator"`
 	Item       map[string]Item       `json:"item"`
+	Tool       map[string]Tool       `json:"tool"`
 	Lab        map[string]Lab        `json:"lab"`
 	Module     map[string]Module     `json:"module"`
 	Recipe     map[string]Recipe     `json:"recipe"`
@@ -240,6 +241,13 @@ type Item struct {
 	StackSize int          `json:"stack_size"`
 	Subgroup  string       `json:"subgroup"`
 	FuelValue EnergyString `json:"fuel_value"`
+}
+
+type Tool struct {
+	Name       string `json:"name"`
+	StackSize  int    `json:"stack_size"`
+	Subgroup   string `json:"subgroup"`
+	Durability int    `json:"durability"`
 }
 
 type Lab struct {

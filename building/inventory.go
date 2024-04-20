@@ -10,6 +10,8 @@ import (
 type Inventory interface {
 	Put(item string, amount int) error
 	Take(item string, amount int) error
+
+	Count(item string) int
 }
 
 type inventory struct {
@@ -24,14 +26,24 @@ func (i *inventory) Put(item string, amount int) error {
 		return fmt.Errorf("inventory: could not add %s (not allowed in this inventory)", item)
 	}
 
-	s := data.GetItem(item).StackSize
+	var s int
+
+	// Science packs are implemented as tools (like repair packs) and not items
+	if i := data.GetItem(item); i != nil {
+		s = i.StackSize
+	} else if t := data.GetTool(item); t != nil {
+		s = t.StackSize
+	} else {
+		return fmt.Errorf(`inventory: could not find item %q`, item)
+	}
 
 	newN := i.data[item] + amount
 	if newN > s {
 		return fmt.Errorf("inventory: could not add %s (wanted %d but only had space for %d)", item, newN, s)
 	}
 
-	if len(i.data) == i.maxSlots {
+	// attempting to add a new item beyond capacity
+	if newN == amount && len(i.data) == i.maxSlots {
 		return fmt.Errorf("inventory: could not add %s (no available slots)", item)
 	}
 
@@ -56,6 +68,33 @@ func (i *inventory) Take(item string, amount int) error {
 		delete(i.data, item)
 	}
 	return nil
+}
+
+func (i *inventory) Count(item string) int {
+	return i.data[item]
+}
+
+func (i *inventory) canAdd(recipe *data.Recipe, amount int, input bool) bool {
+
+	var items data.Ingredients
+	if input {
+		items = recipe.Ingredients
+	} else {
+		items = recipe.GetResults()
+	}
+
+	for _, item := range items {
+		amt := items.Amount(item.Name) * amount
+
+		if len(i.limitations) > 0 && !slices.Contains(i.limitations, item.Name) {
+			return false
+		}
+
+		if i.data[item.Name]+amt > data.GetItem(item.Name).StackSize {
+			return false
+		}
+	}
+	return true
 }
 
 func newInventory(maxSlots int, limitations []string) *inventory {
@@ -97,7 +136,7 @@ type Modules struct {
 	maxSlots    int
 	machine     Building
 	modules     []*data.Module
-	limitations []string // what modules this accepts
+	limitations []string // what modules we're allowed to add here. Determined by the machine this is part of
 }
 
 func (m Modules) ProductivityBonus(recipe string) float64 {
@@ -154,4 +193,16 @@ func (m *Modules) Take(module string, amount int) error {
 	m.modules = newMods
 
 	return nil
+}
+
+func (m *Modules) Count(module string) int {
+	count := 0
+
+	for _, mod := range m.modules {
+		if mod.Name == module {
+			count++
+		}
+	}
+
+	return count
 }

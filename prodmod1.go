@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/brettschalin/factorio-min-resources/building"
 	"github.com/brettschalin/factorio-min-resources/calc"
 	"github.com/brettschalin/factorio-min-resources/constants"
 	"github.com/brettschalin/factorio-min-resources/data"
@@ -24,7 +23,7 @@ func prodmod1(state *state.State, extraFuel float64) (tas.Tasks, float64) {
 
 	tasks.Add(tas.MineResource("coal", 35))
 
-	t, _ = tas.MachineCraft("plastic-bar", state.Chem, 35, constants.PreferredFuel)
+	t = tas.MachineCraft("plastic-bar", state.Chem, 35, constants.PreferredFuel)
 	tasks.Add(t...)
 
 	craftTasks := tas.Tasks{
@@ -44,10 +43,10 @@ func prodmod1(state *state.State, extraFuel float64) (tas.Tasks, float64) {
 	t[0].Prerequisites().Add(tasks[len(tasks)-1])
 	tasks.Add(t...)
 
-	mod := data.GetModule("productivity-module")
-	state.Assembler.SetModules(building.Modules{mod, mod})
-	state.Lab.SetModules(building.Modules{mod, mod})
-	state.Chem.SetModules(building.Modules{mod, mod, mod})
+	mod := "productivity-module"
+	state.Assembler.PutModules([]string{mod, mod})
+	state.Lab.PutModules([]string{mod, mod})
+	state.Chem.PutModules([]string{mod, mod, mod})
 
 	return tasks, extraFuel
 }
@@ -55,8 +54,6 @@ func prodmod1(state *state.State, extraFuel float64) (tas.Tasks, float64) {
 // buildElectricFurnace returns the tasks required to research and build the electric-furnace
 func buildElectricFurnace(state *state.State, extraFuel float64) tas.Tasks {
 	tasks := tas.Tasks{}
-
-	tasks.Add(tas.Speed(5))
 
 	toCraft := map[*data.Recipe]int{}
 	for _, tech := range []string{"sulfur-processing", "chemical-science-pack", "advanced-material-processing-2"} {
@@ -68,7 +65,7 @@ func buildElectricFurnace(state *state.State, extraFuel float64) tas.Tasks {
 	// apply lab bonuses to the research and convert it to the number of recipes to craft instead of packs needed
 	for r, amount := range toCraft {
 		p := r.ProductCount(r.Name)
-		b := 1 + state.Lab.ProductivityBonus()
+		b := 1 + state.Lab.ProductivityBonus("")
 
 		amt := int(math.Ceil(float64(amount) / (float64(p) * b)))
 
@@ -96,10 +93,12 @@ func buildElectricFurnace(state *state.State, extraFuel float64) tas.Tasks {
 	t, extraFuel = tas.MineFuelAndSmelt("stone", constants.PreferredFuel, state.Furnace, uint(ings.Amount("stone")), extraFuel)
 	tasks.Add(t...)
 
-	t, extraFuel = tas.MineFuelAndSmelt("iron-plate", constants.PreferredFuel, state.Furnace, uint(ings.Amount("steel-plate")*5), extraFuel)
+	t, _ = tas.MineFuelAndSmelt("iron-plate", constants.PreferredFuel, state.Furnace, uint(ings.Amount("steel-plate")*5), extraFuel)
 	tasks.Add(t...)
 
-	_ = extraFuel
+	tasks.Add(tas.MineResource("coal", uint(ings.Amount("coal"))))
+
+	// TODO: the rest of the crafts
 
 	// state.Furnace = building.NewFurnace(data.GetFurnace("electric-furnace"))
 

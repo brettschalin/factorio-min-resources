@@ -22,6 +22,11 @@ func TestMain(m *testing.M) {
 	}
 
 	assembler = building.NewAssembler(data.GetAssemblingMachine("assembling-machine-1"))
+	chemPlant = building.NewAssembler(data.GetAssemblingMachine("chemical-plant"))
+	moduledAssembler = building.NewAssembler(data.GetAssemblingMachine("assembling-machine-2"))
+
+	moduledAssembler.PutModules([]string{"productivity-module-3", "productivity-module-3"})
+
 	stoneFurnace = building.NewFurnace(data.GetFurnace("stone-furnace"))
 
 	os.Exit(m.Run())
@@ -49,8 +54,8 @@ func floatsEqual[T ~float32 | ~float64](f1, f2 T) bool {
 }
 
 var (
-	assembler    *building.Assembler
-	stoneFurnace *building.Furnace
+	assembler, moduledAssembler, chemPlant *building.Assembler
+	stoneFurnace                           *building.Furnace
 )
 
 func (c *craftTestCase) verify(t *testing.T, tasks Tasks, leftoverFuel float64) {
@@ -86,8 +91,6 @@ func (c *craftTestCase) verify(t *testing.T, tasks Tasks, leftoverFuel float64) 
 }
 
 func TestMachineCraft(t *testing.T) {
-
-	// MachineCraft does not do batching of any kind. Future iterations of this code will handle that and modules but we are not there yet
 	for _, test := range []craftTestCase{
 		{
 			name:    "craft copper cables",
@@ -100,7 +103,6 @@ func TestMachineCraft(t *testing.T) {
 				WaitInventory(assembler.Name(), "copper-cable", constants.InventoryAssemblingMachineOutput, 40, true),
 				Transfer(assembler.Name(), "copper-cable", constants.InventoryAssemblingMachineOutput, 40, true),
 			},
-			expectedLeftoverFuel: addr(float64(0)),
 		},
 		{
 			name:    ">1 stack of ingredients",
@@ -109,24 +111,30 @@ func TestMachineCraft(t *testing.T) {
 			amount:  60,
 			expectedTasks: Tasks{
 				Recipe(assembler.Name(), "iron-gear-wheel"),
-				Transfer(assembler.Name(), "iron-plate", constants.InventoryAssemblingMachineInput, 120, false),
-				WaitInventory(assembler.Name(), "iron-gear-wheel", constants.InventoryAssemblingMachineOutput, 60, true),
-				Transfer(assembler.Name(), "iron-gear-wheel", constants.InventoryAssemblingMachineOutput, 60, true),
+				Transfer(assembler.Name(), "iron-plate", constants.InventoryAssemblingMachineInput, 100, false),
+				WaitInventory(assembler.Name(), "iron-gear-wheel", constants.InventoryAssemblingMachineOutput, 50, true),
+				Transfer(assembler.Name(), "iron-gear-wheel", constants.InventoryAssemblingMachineOutput, 50, true),
+
+				Transfer(assembler.Name(), "iron-plate", constants.InventoryAssemblingMachineInput, 20, false),
+				WaitInventory(assembler.Name(), "iron-gear-wheel", constants.InventoryAssemblingMachineOutput, 10, true),
+				Transfer(assembler.Name(), "iron-gear-wheel", constants.InventoryAssemblingMachineOutput, 10, true),
 			},
-			expectedLeftoverFuel: addr(float64(0)),
 		},
 		{
 			name:    ">1 stack of products",
 			machine: assembler,
-			recipe:  "copper-cable",
-			amount:  150,
+			recipe:  "iron-stick",
+			amount:  75,
 			expectedTasks: Tasks{
-				Recipe(assembler.Name(), "copper-cable"),
-				Transfer(assembler.Name(), "copper-plate", constants.InventoryAssemblingMachineInput, 150, false),
-				WaitInventory(assembler.Name(), "copper-cable", constants.InventoryAssemblingMachineOutput, 300, true),
-				Transfer(assembler.Name(), "copper-cable", constants.InventoryAssemblingMachineOutput, 300, true),
+				Recipe(assembler.Name(), "iron-stick"),
+				Transfer(assembler.Name(), "iron-plate", constants.InventoryAssemblingMachineInput, 50, false),
+				WaitInventory(assembler.Name(), "iron-stick", constants.InventoryAssemblingMachineOutput, 100, true),
+				Transfer(assembler.Name(), "iron-stick", constants.InventoryAssemblingMachineOutput, 100, true),
+
+				Transfer(assembler.Name(), "iron-plate", constants.InventoryAssemblingMachineInput, 25, false),
+				WaitInventory(assembler.Name(), "iron-stick", constants.InventoryAssemblingMachineOutput, 50, true),
+				Transfer(assembler.Name(), "iron-stick", constants.InventoryAssemblingMachineOutput, 50, true),
 			},
-			expectedLeftoverFuel: addr(float64(0)),
 		},
 		{
 			name:    "multiple ingredients",
@@ -140,12 +148,55 @@ func TestMachineCraft(t *testing.T) {
 				WaitInventory(assembler.Name(), "electronic-circuit", constants.InventoryAssemblingMachineOutput, 50, true),
 				Transfer(assembler.Name(), "electronic-circuit", constants.InventoryAssemblingMachineOutput, 50, true),
 			},
-			expectedLeftoverFuel: addr(float64(0)),
+		},
+		{
+			name:    "moduled assembler",
+			machine: moduledAssembler,
+			recipe:  "iron-gear-wheel",
+			amount:  50,
+			expectedTasks: Tasks{
+				Recipe(moduledAssembler.Name(), "iron-gear-wheel"),
+				Transfer(moduledAssembler.Name(), "iron-plate", constants.InventoryAssemblingMachineInput, 100, false),
+
+				WaitInventory(moduledAssembler.Name(), "iron-gear-wheel", constants.InventoryAssemblingMachineOutput, 60, true),
+				Transfer(moduledAssembler.Name(), "iron-gear-wheel", constants.InventoryAssemblingMachineOutput, 60, true),
+			},
+		},
+		{
+			name:    "moduled assembler with > 1 stack of output",
+			machine: moduledAssembler,
+			recipe:  "copper-cable",
+			amount:  150,
+			expectedTasks: Tasks{
+				Recipe(moduledAssembler.Name(), "copper-cable"),
+
+				Transfer(moduledAssembler.Name(), "copper-plate", constants.InventoryAssemblingMachineInput, 100, false),
+				WaitInventory(moduledAssembler.Name(), "copper-cable", constants.InventoryAssemblingMachineOutput, 200, true),
+				Transfer(moduledAssembler.Name(), "copper-cable", constants.InventoryAssemblingMachineOutput, 200, true),
+
+				WaitInventory(moduledAssembler.Name(), "copper-cable", constants.InventoryAssemblingMachineOutput, 40, true),
+				Transfer(moduledAssembler.Name(), "copper-cable", constants.InventoryAssemblingMachineOutput, 40, true),
+
+				Transfer(moduledAssembler.Name(), "copper-plate", constants.InventoryAssemblingMachineInput, 50, false),
+				WaitInventory(moduledAssembler.Name(), "copper-cable", constants.InventoryAssemblingMachineOutput, 120, true),
+				Transfer(moduledAssembler.Name(), "copper-cable", constants.InventoryAssemblingMachineOutput, 120, true),
+			},
+		},
+		{
+			name:    "only fluid ingredients",
+			machine: chemPlant,
+			recipe:  "sulfur",
+			amount:  25,
+			expectedTasks: Tasks{
+				Recipe(chemPlant.Name(), "sulfur"),
+				WaitInventory(chemPlant.Name(), "sulfur", constants.InventoryAssemblingMachineOutput, 50, true),
+				Transfer(chemPlant.Name(), "sulfur", constants.InventoryAssemblingMachineOutput, 50, true),
+			},
 		},
 	} {
 		t.Run(test.name, func(tt *testing.T) {
-			tasks, fuel := MachineCraft(test.recipe, test.machine, test.amount, test.fuel)
-			test.verify(tt, tasks, fuel)
+			tasks := MachineCraft(test.recipe, test.machine, test.amount, test.fuel)
+			test.verify(tt, tasks, 0)
 		})
 	}
 }

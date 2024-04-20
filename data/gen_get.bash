@@ -16,7 +16,7 @@ func GetTech(tech string) *Technology {
 
 EOF
 
-for thing in AssemblingMachine Boiler Furnace Generator Item Lab Module RocketSilo; do
+for thing in AssemblingMachine Boiler Furnace Generator Item Tool Lab Module RocketSilo; do
 	cat <<EOF >> $OUTFILE
 func Get$thing(name string) *$thing {
 	x := d.$thing[name]
